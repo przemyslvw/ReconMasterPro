@@ -112,8 +112,12 @@ public class SecretsScanner implements IHttpListener {
         "[\"'\\s]*[=:][\"'\\s]*([\"']?)([a-zA-Z0-9+/=_\\-\\.]{20,128})\\1"
     );
 
-    private static final double ENTROPY_THRESHOLD = 4.5;
+    private volatile double entropyThreshold = 4.0;
     private static final int CONTEXT_RADIUS = 60;
+
+    public void setEntropyThreshold(double threshold) {
+        this.entropyThreshold = threshold;
+    }
 
     // deduplikacja: host|type|redacted_value
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
@@ -206,7 +210,7 @@ public class SecretsScanner implements IHttpListener {
             if (isFiltered(value)) continue;
 
             double entropy = EntropyCalculator.calculate(value);
-            if (entropy < ENTROPY_THRESHOLD) continue;
+            if (entropy < entropyThreshold) continue;
 
             // sprawdź, czy to nie zostało już złapane przez regex
             String redacted = new Secret("", "", value, "", "", "", "").value;

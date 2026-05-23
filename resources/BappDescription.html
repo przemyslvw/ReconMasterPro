@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 14px; color: #333;
+         max-width: 800px; line-height: 1.6; }
+  h2   { color: #e8732a; margin-top: 24px; }
+  table{ border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th   { background: #e8732a; color: #fff; padding: 8px 12px; text-align: left; }
+  td   { padding: 7px 12px; border-bottom: 1px solid #eee; }
+  code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+  .tag { display: inline-block; background: #e8f0fe; color: #1967d2;
+         padding: 2px 8px; border-radius: 12px; font-size: 12px;
+         margin: 2px; }
+</style>
+</head>
+<body>
+
+<h2>ReconMaster Pro</h2>
+<p>
+  Automated reconnaissance plugin for Burp Suite Community Edition.
+  Passively processes every HTTP response to build a full picture of the target's
+  attack surface — no Pro license required.
+</p>
+
+<p>
+  <span class="tag">passive</span>
+  <span class="tag">recon</span>
+  <span class="tag">bug bounty</span>
+  <span class="tag">pentest</span>
+  <span class="tag">offline</span>
+</p>
+
+<h2>Modules</h2>
+<table>
+  <thead><tr><th>Module</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Endpoint Discovery</strong></td>
+      <td>Extracts and deduplicates URLs from JS, HTML and JSON responses.
+          Groups by pattern (<code>/api/users/{id}</code>) and scores by exploit probability.</td>
+    </tr>
+    <tr>
+      <td><strong>Tech Stack Fingerprinting</strong></td>
+      <td>Detects frameworks and library versions from headers, comments and CDN links.
+          Cross-references an embedded offline CVE database.</td>
+    </tr>
+    <tr>
+      <td><strong>Secrets Scanner</strong></td>
+      <td>Shannon entropy analysis + regex patterns for AWS keys, GitHub tokens, JWTs and more.
+          Context-aware filtering ignores test fixtures.</td>
+    </tr>
+    <tr>
+      <td><strong>CORS Hunter</strong></td>
+      <td>Tests all discovered endpoints for CORS misconfigurations (wildcard, null origin,
+          credentialed requests). Generates ready-to-use PoC HTML.</td>
+    </tr>
+    <tr>
+      <td><strong>GraphQL Extractor</strong></td>
+      <td>Auto-discovers GraphQL endpoints and runs introspection queries to map the schema.</td>
+    </tr>
+    <tr>
+      <td><strong>Cloud Assets Aggregator</strong></td>
+      <td>Discovers S3, Azure Blob and GCS buckets from JS, HTML comments and CSP headers.
+          Checks public exposure.</td>
+    </tr>
+    <tr>
+      <td><strong>Attack Surface Timeline</strong></td>
+      <td>SQLite-backed timeline — alerts on newly appeared or disappeared endpoints
+          within a configurable time window.</td>
+    </tr>
+    <tr>
+      <td><strong>Report Generator</strong></td>
+      <td>One-click export to standalone HTML, JSON, Markdown or CSV (ZIP).
+          Secret values are automatically redacted.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Requirements</h2>
+<ul>
+  <li>Burp Suite Community or Professional Edition 2022.12+</li>
+  <li>Java 11 or later</li>
+  <li>No external API calls — everything runs offline</li>
+</ul>
+
+<h2>Performance</h2>
+<p>
+  Tested at 1000+ endpoints: under 100 MB RAM, under 10% CPU overhead.
+  All scanning runs on background threads — the UI never blocks.
+</p>
+
+<h2>Author</h2>
+<p>
+  Przemysław Majdak (przemyslvw) &mdash;
+  <a href="https://baluarte.pl">baluarte.pl</a> &mdash;
+  majdak.przemyslaw@gmail.com
+</p>
+
+</body>
+</html>

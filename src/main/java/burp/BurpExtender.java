@@ -19,6 +19,8 @@ import burp.utils.CveDatabase;
 import burp.utils.DatabaseManager;
 import burp.ui.ReportPanel;
 import burp.modules.ReportGenerator;
+import burp.utils.SettingsManager;
+import burp.ui.SettingsPanel;
 
 import javax.swing.*;
 
@@ -41,6 +43,9 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
         callbacks.registerExtensionStateListener(this);
 
         SwingUtilities.invokeLater(() -> {
+            // --- Etap 10: Settings ---
+            SettingsManager settings = new SettingsManager(callbacks);
+
             // --- Etap 5: Database ---
             db = DatabaseManager.forProduction();
             try { db.initialize(); }
@@ -64,6 +69,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             TimelinePanel timelinePanel = new TimelinePanel();
             timelinePanel.setDatabase(db);
             TimelineAnalyzer analyzer = new TimelineAnalyzer(db, timelinePanel::addEvent);
+            analyzer.setWindowMinutes(settings.getTimelineWindowMinutes());
 
             // --- Etap 6: CORS Hunter ---
             CorsPanel corsPanel = new CorsPanel();
@@ -101,6 +107,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
                 secretsPanel.addSecret(secret);
                 analyzer.trackSecret(secret);
             });
+            secretsScanner.setEntropyThreshold(settings.getEntropyThreshold());
             callbacks.registerHttpListener(secretsScanner);
 
             // --- Etap 8: Cloud Assets Aggregator ---
@@ -120,8 +127,13 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             );
             ReportPanel reportPanel = new ReportPanel(reportGenerator);
 
+            SettingsPanel settingsPanel = new SettingsPanel(settings, () -> {
+                secretsScanner.setEntropyThreshold(settings.getEntropyThreshold());
+                analyzer.setWindowMinutes(settings.getTimelineWindowMinutes());
+            });
+
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel, reportPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel, reportPanel, settingsPanel);
             callbacks.addSuiteTab(tab);
         });
 

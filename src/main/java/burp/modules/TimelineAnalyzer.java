@@ -11,10 +11,15 @@ public class TimelineAnalyzer {
 
     private final DatabaseManager db;
     private final Consumer<TimelineEvent> onEvent;
+    private volatile int windowMinutes = 60;
 
     public TimelineAnalyzer(DatabaseManager db, Consumer<TimelineEvent> onEvent) {
         this.db = db;
         this.onEvent = onEvent;
+    }
+
+    public void setWindowMinutes(int minutes) {
+        this.windowMinutes = minutes;
     }
 
     // ── Endpoint ──────────────────────────────────────────────────────
