@@ -21,6 +21,7 @@ import burp.ui.ReportPanel;
 import burp.modules.ReportGenerator;
 import burp.utils.SettingsManager;
 import burp.ui.SettingsPanel;
+import burp.ui.AiAssistantPanel;
 
 import javax.swing.*;
 
@@ -127,13 +128,25 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             );
             ReportPanel reportPanel = new ReportPanel(reportGenerator);
 
+            // --- AI Assistant Panel ---
+            AiAssistantPanel aiAssistantPanel = new AiAssistantPanel(
+                settings,
+                endpointsPanel::getEndpoints,
+                techPanel::getTechnologies,
+                secretsPanel::getSecrets,
+                corsPanel::getFindings,
+                cloudAssetsPanel::getAssets,
+                graphqlPanel::getEndpoints
+            );
+
             SettingsPanel settingsPanel = new SettingsPanel(settings, () -> {
                 secretsScanner.setEntropyThreshold(settings.getEntropyThreshold());
                 analyzer.setWindowMinutes(settings.getTimelineWindowMinutes());
+                aiAssistantPanel.refreshSettings();
             });
 
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel, reportPanel, settingsPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel, reportPanel, aiAssistantPanel, settingsPanel);
             callbacks.addSuiteTab(tab);
         });
 

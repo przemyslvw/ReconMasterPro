@@ -55,10 +55,15 @@ public class AiAnalyzer {
      * Automatically applies OpSec domain masking and secret masking if configured.
      */
     public String buildUserPrompt() {
+        return buildUserPrompt(true, true, true, true, true, true);
+    }
+
+    public String buildUserPrompt(boolean includeEndpoints, boolean includeTech, boolean includeSecrets,
+                                  boolean includeCors, boolean includeCloud, boolean includeGraphql) {
         boolean maskDomains = settings.isAiMaskDomains();
         boolean maskSecrets = settings.isAiMaskSecrets();
 
-        Map<String, String> hostMap = maskDomains ? buildOpSecHostMap() : Collections.emptyMap();
+        Map<String, String> hostMap = maskDomains ? buildOpSecHostMap(includeEndpoints, includeTech, includeSecrets, includeCors, includeCloud, includeGraphql) : Collections.emptyMap();
 
         StringBuilder sb = new StringBuilder();
         sb.append("# Target Reconnaissance & Security Findings Report\n\n");
@@ -78,124 +83,136 @@ public class AiAnalyzer {
         }
 
         // --- Section 1: Technologies & CVEs ---
-        sb.append("## 🛠️ Detected Technologies & CVEs\n");
-        List<Technology> techs = techSupplier != null ? techSupplier.get() : null;
-        if (techs == null || techs.isEmpty()) {
-            sb.append("No technologies detected.\n\n");
-        } else {
-            for (Technology t : techs) {
-                String tName = maskDomains ? maskText(t.name, hostMap) : t.name;
-                String tVersion = t.version != null ? t.version : "Unknown";
-                String tCategory = t.category != null ? t.category : "General";
-                String tHost = maskDomains ? maskText(t.host, hostMap) : t.host;
-                sb.append(String.format("### %s %s (Host: %s, Category: %s)\n", tName, tVersion, tHost, tCategory));
-                if (t.cves != null && !t.cves.isEmpty()) {
-                    sb.append("| CVE ID | CVSS | Severity | Description |\n");
-                    sb.append("|---|---|---|---|\n");
-                    for (CveEntry c : t.cves) {
-                        String cDesc = maskDomains ? maskText(c.description, hostMap) : c.description;
-                        sb.append(String.format("| %s | %.1f | %s | %s |\n", c.cve_id, c.cvss, c.severity, cDesc));
+        if (includeTech) {
+            sb.append("## 🛠️ Detected Technologies & CVEs\n");
+            List<Technology> techs = techSupplier != null ? techSupplier.get() : null;
+            if (techs == null || techs.isEmpty()) {
+                sb.append("No technologies detected.\n\n");
+            } else {
+                for (Technology t : techs) {
+                    String tName = maskDomains ? maskText(t.name, hostMap) : t.name;
+                    String tVersion = t.version != null ? t.version : "Unknown";
+                    String tCategory = t.category != null ? t.category : "General";
+                    String tHost = maskDomains ? maskText(t.host, hostMap) : t.host;
+                    sb.append(String.format("### %s %s (Host: %s, Category: %s)\n", tName, tVersion, tHost, tCategory));
+                    if (t.cves != null && !t.cves.isEmpty()) {
+                        sb.append("| CVE ID | CVSS | Severity | Description |\n");
+                        sb.append("|---|---|---|---|\n");
+                        for (CveEntry c : t.cves) {
+                            String cDesc = maskDomains ? maskText(c.description, hostMap) : c.description;
+                            sb.append(String.format("| %s | %.1f | %s | %s |\n", c.cve_id, c.cvss, c.severity, cDesc));
+                        }
+                    } else {
+                        sb.append("No known CVEs associated in local DB.\n");
                     }
-                } else {
-                    sb.append("No known CVEs associated in local DB.\n");
+                    sb.append("\n");
+                }
+            }
+        }
+
+        // --- Section 2: Endpoints ---
+        if (includeEndpoints) {
+            sb.append("## 🔗 Endpoints\n");
+            List<Endpoint> endpoints = getInterestingEndpoints();
+            if (endpoints.isEmpty()) {
+                sb.append("No endpoints discovered.\n\n");
+            } else {
+                sb.append("| Method | Path | Status Code | Risk Score | Host |\n");
+                sb.append("|---|---|---|---|---|\n");
+                for (Endpoint e : endpoints) {
+                    String eHost = maskDomains ? maskText(e.host, hostMap) : e.host;
+                    String ePath = maskDomains ? maskText(e.path, hostMap) : e.path;
+                    sb.append(String.format("| %s | %s | %d | %d | %s |\n", e.method, ePath, e.statusCode, e.riskScore, eHost));
                 }
                 sb.append("\n");
             }
         }
 
-        // --- Section 2: Endpoints ---
-        sb.append("## 🔗 Endpoints\n");
-        List<Endpoint> endpoints = getInterestingEndpoints();
-        if (endpoints.isEmpty()) {
-            sb.append("No endpoints discovered.\n\n");
-        } else {
-            sb.append("| Method | Path | Status Code | Risk Score | Host |\n");
-            sb.append("|---|---|---|---|---|\n");
-            for (Endpoint e : endpoints) {
-                String eHost = maskDomains ? maskText(e.host, hostMap) : e.host;
-                String ePath = maskDomains ? maskText(e.path, hostMap) : e.path;
-                sb.append(String.format("| %s | %s | %d | %d | %s |\n", e.method, ePath, e.statusCode, e.riskScore, eHost));
-            }
-            sb.append("\n");
-        }
-
         // --- Section 3: CORS Findings ---
-        sb.append("## 🌐 CORS Misconfigurations\n");
-        List<CorsFinding> cors = corsSupplier != null ? corsSupplier.get() : null;
-        if (cors == null || cors.isEmpty()) {
-            sb.append("No CORS misconfigurations detected.\n\n");
-        } else {
-            sb.append("| Host | Method | URL | Issue Type | Severity | Tested Origin | ACAO | ACAC |\n");
-            sb.append("|---|---|---|---|---|---|---|---|\n");
-            for (CorsFinding c : cors) {
-                String cHost = maskDomains ? maskText(c.host, hostMap) : c.host;
-                String cUrl = maskDomains ? maskText(c.url, hostMap) : c.url;
-                String cOrigin = maskDomains ? maskText(c.testedOrigin, hostMap) : c.testedOrigin;
-                String cAcao = maskDomains ? maskText(c.responseAcao, hostMap) : c.responseAcao;
-                String cAcac = maskDomains ? maskText(c.responseAcac, hostMap) : c.responseAcac;
-                sb.append(String.format("| %s | %s | %s | %s | %s | %s | %s | %s |\n",
-                        cHost, c.method, cUrl, c.type.name(), c.severity, cOrigin, cAcao, cAcac));
+        if (includeCors) {
+            sb.append("## 🌐 CORS Misconfigurations\n");
+            List<CorsFinding> cors = corsSupplier != null ? corsSupplier.get() : null;
+            if (cors == null || cors.isEmpty()) {
+                sb.append("No CORS misconfigurations detected.\n\n");
+            } else {
+                sb.append("| Host | Method | URL | Issue Type | Severity | Tested Origin | ACAO | ACAC |\n");
+                sb.append("|---|---|---|---|---|---|---|---|\n");
+                for (CorsFinding c : cors) {
+                    String cHost = maskDomains ? maskText(c.host, hostMap) : c.host;
+                    String cUrl = maskDomains ? maskText(c.url, hostMap) : c.url;
+                    String cOrigin = maskDomains ? maskText(c.testedOrigin, hostMap) : c.testedOrigin;
+                    String cAcao = maskDomains ? maskText(c.responseAcao, hostMap) : c.responseAcao;
+                    String cAcac = maskDomains ? maskText(c.responseAcac, hostMap) : c.responseAcac;
+                    sb.append(String.format("| %s | %s | %s | %s | %s | %s | %s | %s |\n",
+                            cHost, c.method, cUrl, c.type.name(), c.severity, cOrigin, cAcao, cAcac));
+                }
+                sb.append("\n");
             }
-            sb.append("\n");
         }
 
         // --- Section 4: GraphQL Endpoints ---
-        sb.append("## 📊 GraphQL Endpoints\n");
-        List<GraphQLEndpoint> gqls = graphqlSupplier != null ? graphqlSupplier.get() : null;
-        if (gqls == null || gqls.isEmpty()) {
-            sb.append("No GraphQL endpoints detected.\n\n");
-        } else {
-            sb.append("| Host | URL | Detection Method | Introspection Enabled | Schema Loaded |\n");
-            sb.append("|---|---|---|---|---|\n");
-            for (GraphQLEndpoint g : gqls) {
-                String gHost = maskDomains ? maskText(g.host, hostMap) : g.host;
-                String gUrl = maskDomains ? maskText(g.url, hostMap) : g.url;
-                sb.append(String.format("| %s | %s | %s | %b | %b |\n",
-                        gHost, gUrl, g.detectionMethod, g.introspectionEnabled, g.schemaLoaded));
+        if (includeGraphql) {
+            sb.append("## 📊 GraphQL Endpoints\n");
+            List<GraphQLEndpoint> gqls = graphqlSupplier != null ? graphqlSupplier.get() : null;
+            if (gqls == null || gqls.isEmpty()) {
+                sb.append("No GraphQL endpoints detected.\n\n");
+            } else {
+                sb.append("| Host | URL | Detection Method | Introspection Enabled | Schema Loaded |\n");
+                sb.append("|---|---|---|---|---|\n");
+                for (GraphQLEndpoint g : gqls) {
+                    String gHost = maskDomains ? maskText(g.host, hostMap) : g.host;
+                    String gUrl = maskDomains ? maskText(g.url, hostMap) : g.url;
+                    sb.append(String.format("| %s | %s | %s | %b | %b |\n",
+                            gHost, gUrl, g.detectionMethod, g.introspectionEnabled, g.schemaLoaded));
+                }
+                sb.append("\n");
             }
-            sb.append("\n");
         }
 
         // --- Section 5: Cloud Assets ---
-        sb.append("## ☁️ Cloud Assets\n");
-        List<CloudAsset> clouds = cloudSupplier != null ? cloudSupplier.get() : null;
-        if (clouds == null || clouds.isEmpty()) {
-            sb.append("No cloud assets detected.\n\n");
-        } else {
-            sb.append("| Provider | Bucket/Account | URL | Source URL | Source Type | Access Status | HTTP Code |\n");
-            sb.append("|---|---|---|---|---|---|---|\n");
-            for (CloudAsset c : clouds) {
-                String cBucket = maskDomains ? maskText(c.bucketOrAccount, hostMap) : c.bucketOrAccount;
-                String cUrl = maskDomains ? maskText(c.url, hostMap) : c.url;
-                String cSource = maskDomains ? maskText(c.sourceUrl, hostMap) : c.sourceUrl;
-                sb.append(String.format("| %s | %s | %s | %s | %s | %s | %d |\n",
-                        c.provider.name(), cBucket, cUrl, cSource, c.sourceType, c.accessStatus, c.accessStatusCode));
+        if (includeCloud) {
+            sb.append("## ☁️ Cloud Assets\n");
+            List<CloudAsset> clouds = cloudSupplier != null ? cloudSupplier.get() : null;
+            if (clouds == null || clouds.isEmpty()) {
+                sb.append("No cloud assets detected.\n\n");
+            } else {
+                sb.append("| Provider | Bucket/Account | URL | Source URL | Source Type | Access Status | HTTP Code |\n");
+                sb.append("|---|---|---|---|---|---|---|\n");
+                for (CloudAsset c : clouds) {
+                    String cBucket = maskDomains ? maskText(c.bucketOrAccount, hostMap) : c.bucketOrAccount;
+                    String cUrl = maskDomains ? maskText(c.url, hostMap) : c.url;
+                    String cSource = maskDomains ? maskText(c.sourceUrl, hostMap) : c.sourceUrl;
+                    sb.append(String.format("| %s | %s | %s | %s | %s | %s | %d |\n",
+                            c.provider.name(), cBucket, cUrl, cSource, c.sourceType, c.accessStatus, c.accessStatusCode));
+                }
+                sb.append("\n");
             }
-            sb.append("\n");
         }
 
         // --- Section 6: Secrets ---
-        sb.append("## 🔑 Discovered Secrets\n");
-        List<Secret> secrets = secretSupplier != null ? secretSupplier.get() : null;
-        if (secrets == null || secrets.isEmpty()) {
-            sb.append("No secrets detected.\n\n");
-        } else {
-            sb.append("| Type | Severity | Value | Host | URL | Detected By | Context |\n");
-            sb.append("|---|---|---|---|---|---|---|\n");
-            for (Secret s : secrets) {
-                String sHost = maskDomains ? maskText(s.host, hostMap) : s.host;
-                String sUrl = maskDomains ? maskText(s.url, hostMap) : s.url;
-                String sVal = maskSecrets ? s.value : s.fullValue;
-                if (maskDomains) {
-                    sVal = maskText(sVal, hostMap);
-                    sUrl = maskText(sUrl, hostMap);
+        if (includeSecrets) {
+            sb.append("## 🔑 Discovered Secrets\n");
+            List<Secret> secrets = secretSupplier != null ? secretSupplier.get() : null;
+            if (secrets == null || secrets.isEmpty()) {
+                sb.append("No secrets detected.\n\n");
+            } else {
+                sb.append("| Type | Severity | Value | Host | URL | Detected By | Context |\n");
+                sb.append("|---|---|---|---|---|---|---|\n");
+                for (Secret s : secrets) {
+                    String sHost = maskDomains ? maskText(s.host, hostMap) : s.host;
+                    String sUrl = maskDomains ? maskText(s.url, hostMap) : s.url;
+                    String sVal = maskSecrets ? s.value : s.fullValue;
+                    if (maskDomains) {
+                        sVal = maskText(sVal, hostMap);
+                        sUrl = maskText(sUrl, hostMap);
+                    }
+                    String sCtx = maskDomains ? maskText(s.context, hostMap) : s.context;
+                    sCtx = sCtx.replace("|", "\\|").replace("\n", " ").replace("\r", " ");
+                    sb.append(String.format("| %s | %s | %s | %s | %s | %s | %s |\n",
+                            s.type, s.severity, sVal, sHost, sUrl, s.detectedBy, sCtx));
                 }
-                String sCtx = maskDomains ? maskText(s.context, hostMap) : s.context;
-                sCtx = sCtx.replace("|", "\\|").replace("\n", " ").replace("\r", " ");
-                sb.append(String.format("| %s | %s | %s | %s | %s | %s | %s |\n",
-                        s.type, s.severity, sVal, sHost, sUrl, s.detectedBy, sCtx));
+                sb.append("\n");
             }
-            sb.append("\n");
         }
 
         return sb.toString();
@@ -205,44 +222,49 @@ public class AiAnalyzer {
      * Gathers all unique hosts from all data sources to build an OpSec host mapping dictionary.
      */
     public Map<String, String> buildOpSecHostMap() {
+        return buildOpSecHostMap(true, true, true, true, true, true);
+    }
+
+    public Map<String, String> buildOpSecHostMap(boolean includeEndpoints, boolean includeTech, boolean includeSecrets,
+                                                 boolean includeCors, boolean includeCloud, boolean includeGraphql) {
         Set<String> uniqueHosts = new HashSet<>();
 
-        if (endpointSupplier != null && endpointSupplier.get() != null) {
+        if (includeEndpoints && endpointSupplier != null && endpointSupplier.get() != null) {
             for (Endpoint e : endpointSupplier.get()) {
                 if (e.host != null && !e.host.trim().isEmpty()) {
                     uniqueHosts.add(e.host.trim().toLowerCase());
                 }
             }
         }
-        if (techSupplier != null && techSupplier.get() != null) {
+        if (includeTech && techSupplier != null && techSupplier.get() != null) {
             for (Technology t : techSupplier.get()) {
                 if (t.host != null && !t.host.trim().isEmpty()) {
                     uniqueHosts.add(t.host.trim().toLowerCase());
                 }
             }
         }
-        if (secretSupplier != null && secretSupplier.get() != null) {
+        if (includeSecrets && secretSupplier != null && secretSupplier.get() != null) {
             for (Secret s : secretSupplier.get()) {
                 if (s.host != null && !s.host.trim().isEmpty()) {
                     uniqueHosts.add(s.host.trim().toLowerCase());
                 }
             }
         }
-        if (corsSupplier != null && corsSupplier.get() != null) {
+        if (includeCors && corsSupplier != null && corsSupplier.get() != null) {
             for (CorsFinding c : corsSupplier.get()) {
                 if (c.host != null && !c.host.trim().isEmpty()) {
                     uniqueHosts.add(c.host.trim().toLowerCase());
                 }
             }
         }
-        if (graphqlSupplier != null && graphqlSupplier.get() != null) {
+        if (includeGraphql && graphqlSupplier != null && graphqlSupplier.get() != null) {
             for (GraphQLEndpoint g : graphqlSupplier.get()) {
                 if (g.host != null && !g.host.trim().isEmpty()) {
                     uniqueHosts.add(g.host.trim().toLowerCase());
                 }
             }
         }
-        if (cloudSupplier != null && cloudSupplier.get() != null) {
+        if (includeCloud && cloudSupplier != null && cloudSupplier.get() != null) {
             for (CloudAsset c : cloudSupplier.get()) {
                 if (c.bucketOrAccount != null && !c.bucketOrAccount.trim().isEmpty()) {
                     uniqueHosts.add(c.bucketOrAccount.trim().toLowerCase());

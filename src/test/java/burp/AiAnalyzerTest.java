@@ -159,4 +159,25 @@ public class AiAnalyzerTest {
         assertTrue(report.contains("Introspection Enabled"));
         assertTrue(report.contains("my-bucket"));
     }
+
+    @Test
+    void selectivePromptInclusion() {
+        settings.setAiMaskDomains(false);
+
+        Technology tech = new Technology("Apache", "Web Server", "myhost.com");
+        technologies.add(tech);
+
+        endpoints.add(new Endpoint("myhost.com", "GET", "/api", 200));
+
+        // Let's call with only endpoints and tech excluded
+        String reportExcluding = analyzer.buildUserPrompt(false, false, true, true, true, true);
+        assertFalse(reportExcluding.contains("Detected Technologies"));
+        assertFalse(reportExcluding.contains("Endpoints"));
+
+        // Let's call with endpoints included and tech excluded
+        String reportOnlyEndpoints = analyzer.buildUserPrompt(true, false, false, false, false, false);
+        assertTrue(reportOnlyEndpoints.contains("Endpoints"));
+        assertFalse(reportOnlyEndpoints.contains("Detected Technologies"));
+        assertFalse(reportOnlyEndpoints.contains("Secrets"));
+    }
 }
