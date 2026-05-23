@@ -1,9 +1,11 @@
 package burp;
 
+import burp.modules.CorsHunter;
 import burp.modules.EndpointDiscovery;
 import burp.modules.SecretsScanner;
 import burp.modules.TechStackFingerprinter;
 import burp.modules.TimelineAnalyzer;
+import burp.ui.CorsPanel;
 import burp.ui.EndpointsPanel;
 import burp.ui.ReconMasterTab;
 import burp.ui.SecretsPanel;
@@ -20,6 +22,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
     public static IExtensionHelpers helpers;
 
     private DatabaseManager db;
+    private CorsHunter corsHunter;
 
     @Override
     public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks) {
@@ -54,6 +57,12 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             timelinePanel.setDatabase(db);
             TimelineAnalyzer analyzer = new TimelineAnalyzer(db, timelinePanel::addEvent);
 
+            // --- Etap 6: CORS Hunter ---
+            CorsPanel corsPanel = new CorsPanel();
+            corsHunter = new CorsHunter(corsPanel::addFinding);
+            corsPanel.setHunter(corsHunter);
+            callbacks.registerHttpListener(corsHunter);
+
             // Etap 2: EndpointDiscovery z Timeline
             EndpointDiscovery discovery = new EndpointDiscovery(ep -> {
                 endpointsPanel.addEndpoint(ep);
@@ -78,7 +87,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             callbacks.registerHttpListener(secretsScanner);
 
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel);
             callbacks.addSuiteTab(tab);
         });
 
@@ -89,5 +98,6 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
     @Override
     public void extensionUnloaded() {
         if (db != null) db.close();
+        if (corsHunter != null) corsHunter.shutdown();
     }
 }
