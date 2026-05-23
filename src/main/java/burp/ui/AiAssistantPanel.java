@@ -185,13 +185,13 @@ public class AiAssistantPanel extends JPanel {
         boolean maskSecrets = settings.isAiMaskSecrets();
         boolean maskDomains = settings.isAiMaskDomains();
 
-        opsecInfoPanel.add(new JLabel("<html><b>AI Provider:</b> " + provider.name() + "</html>"), c);
+        opsecInfoPanel.add(makeHtmlLabel("<b>AI Provider:</b> " + provider.name()), c);
         c.gridy++;
-        opsecInfoPanel.add(new JLabel("<html><b>Model Name:</b> " + model + "</html>"), c);
+        opsecInfoPanel.add(makeHtmlLabel("<b>Model Name:</b> " + model), c);
         c.gridy++;
-        opsecInfoPanel.add(new JLabel("<html><b>Mask Secrets:</b> " + (maskSecrets ? "Yes" : "No") + "</html>"), c);
+        opsecInfoPanel.add(makeHtmlLabel("<b>Mask Secrets:</b> " + (maskSecrets ? "Yes" : "No")), c);
         c.gridy++;
-        opsecInfoPanel.add(new JLabel("<html><b>Mask Domains:</b> " + (maskDomains ? "Yes" : "No") + "</html>"), c);
+        opsecInfoPanel.add(makeHtmlLabel("<b>Mask Domains:</b> " + (maskDomains ? "Yes" : "No")), c);
         c.gridy++;
 
         // Gap before warning box
@@ -212,22 +212,30 @@ public class AiAssistantPanel extends JPanel {
             warningBox.setBackground(provider == AiProvider.LOCAL ? new Color(0xf0, 0xf9, 0xf4) : new Color(0xff, 0xf9, 0xe6));
         }
 
-        JLabel warningText = new JLabel();
+        String warningHtml;
+        if (provider == AiProvider.LOCAL) {
+            warningHtml = "<html><body style='font-family:sans-serif;font-size:11px;'>" +
+                    "<font color='#50c878'><b>&#x1F6E1;&#xFE0F; Local Mode Active</b></font><br>" +
+                    "Using local Ollama endpoint (" + settings.getAiLocalUrl() + ").<br>" +
+                    "Recon data remains private and does not leave your machine." +
+                    "</body></html>";
+        } else {
+            warningHtml = "<html><body style='font-family:sans-serif;font-size:11px;'>" +
+                    "<font color='#ff9900'><b>&#x26A0;&#xFE0F; Cloud Provider Active</b></font><br>" +
+                    "Using cloud API (" + provider.name() + "). Selected findings data will be transmitted.<br>" +
+                    "<b>Recommendation:</b> Use local model (e.g. Ollama with <b>llama3</b> or <b>mistral</b>) in Settings for highly confidential systems." +
+                    "</body></html>";
+        }
+
+        JEditorPane warningText = new JEditorPane("text/html", warningHtml);
+        warningText.setEditable(false);
+        warningText.setOpaque(false);
+        warningText.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
         warningText.setFont(new Font("SansSerif", Font.PLAIN, 11));
         if (isDark) {
             warningText.setForeground(Color.WHITE);
         } else {
             warningText.setForeground(Color.BLACK);
-        }
-
-        if (provider == AiProvider.LOCAL) {
-            warningText.setText("<html><font color='#50c878'><b>🛡️ Local Mode Active</b></font><br/>" +
-                    "Using local Ollama endpoint (" + settings.getAiLocalUrl() + ").<br/>" +
-                    "Recon data remains private and does not leave your machine.</html>");
-        } else {
-            warningText.setText("<html><font color='#ff9900'><b>⚠️ Cloud Provider Active</b></font><br/>" +
-                    "Using cloud API (" + provider.name() + "). Selected findings data will be transmitted.<br/>" +
-                    "<b>Recommendation:</b> Use local model (e.g. Ollama with <b>llama3</b> or <b>mistral</b>) in Settings for highly confidential systems.</html>");
         }
 
         warningBox.add(warningText, BorderLayout.CENTER);
@@ -531,5 +539,19 @@ public class AiAssistantPanel extends JPanel {
         text = text.replaceAll("\\*([^\\*]+)\\*", "<i>$1</i>");
 
         return text;
+    }
+
+    /**
+     * Creates a non-editable JEditorPane that renders HTML properly.
+     * JLabel can fail to render HTML in some Burp Suite Look-and-Feel configurations.
+     */
+    private static JEditorPane makeHtmlLabel(String innerHtml) {
+        String html = "<html><body style='font-family:sans-serif;font-size:11px;'>" + innerHtml + "</body></html>";
+        JEditorPane pane = new JEditorPane("text/html", html);
+        pane.setEditable(false);
+        pane.setOpaque(false);
+        pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        pane.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        return pane;
     }
 }
