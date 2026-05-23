@@ -63,7 +63,9 @@ public class EndpointsPanel extends JPanel {
 
     public void addEndpoint(Endpoint ep) {
         SwingUtilities.invokeLater(() -> {
-            endpoints.add(ep);
+            synchronized (endpoints) {
+                endpoints.add(ep);
+            }
             model.addRow(new Object[]{
                 ep.riskScore,
                 ep.method,
@@ -73,6 +75,12 @@ public class EndpointsPanel extends JPanel {
                 ep.statusCode
             });
         });
+    }
+
+    public List<Endpoint> getEndpoints() {
+        synchronized (endpoints) {
+            return List.copyOf(endpoints);
+        }
     }
 
     private void applyFilter(JTable table, String text) {

@@ -83,7 +83,9 @@ public class GraphQLPanel extends JPanel {
 
         JButton clearBtn = new JButton("Clear");
         clearBtn.addActionListener(e -> {
-            endpoints.clear();
+            synchronized (endpoints) {
+                endpoints.clear();
+            }
             schemas.clear();
             tableModel.setRowCount(0);
             treeRoot.removeAllChildren();
@@ -119,7 +121,9 @@ public class GraphQLPanel extends JPanel {
 
     public void addEndpoint(GraphQLEndpoint ep) {
         SwingUtilities.invokeLater(() -> {
-            endpoints.add(ep);
+            synchronized (endpoints) {
+                endpoints.add(ep);
+            }
             tableModel.addRow(new Object[]{
                 ep.host,
                 ep.url,
@@ -128,6 +132,12 @@ public class GraphQLPanel extends JPanel {
                 ep.schemaLoaded ? "loaded" : "-"
             });
         });
+    }
+
+    public List<GraphQLEndpoint> getEndpoints() {
+        synchronized (endpoints) {
+            return List.copyOf(endpoints);
+        }
     }
 
     public void updateSchema(GraphQLEndpoint ep, GraphQLSchemaParser.ParsedSchema schema) {

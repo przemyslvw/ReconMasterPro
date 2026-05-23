@@ -73,7 +73,9 @@ public class TechStackPanel extends JPanel {
 
     public void addTechnology(Technology tech) {
         SwingUtilities.invokeLater(() -> {
-            technologies.add(tech);
+            synchronized (technologies) {
+                technologies.add(tech);
+            }
             model.addRow(new Object[]{
                 tech.highestSeverity(),
                 tech.name,
@@ -84,6 +86,12 @@ public class TechStackPanel extends JPanel {
                 tech.host
             });
         });
+    }
+
+    public List<Technology> getTechnologies() {
+        synchronized (technologies) {
+            return List.copyOf(technologies);
+        }
     }
 
     private void showCveDetail(Technology tech) {

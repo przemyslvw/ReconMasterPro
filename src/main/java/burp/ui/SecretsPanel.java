@@ -90,7 +90,9 @@ public class SecretsPanel extends JPanel {
 
     public void addSecret(Secret secret) {
         SwingUtilities.invokeLater(() -> {
-            secrets.add(secret);
+            synchronized (secrets) {
+                secrets.add(secret);
+            }
             model.addRow(new Object[]{
                 secret.severity,
                 secret.type,
@@ -101,6 +103,12 @@ public class SecretsPanel extends JPanel {
                 truncateUrl(secret.url)
             });
         });
+    }
+
+    public List<Secret> getSecrets() {
+        synchronized (secrets) {
+            return List.copyOf(secrets);
+        }
     }
 
     private void showDetail(Secret s) {

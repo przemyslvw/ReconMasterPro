@@ -87,7 +87,9 @@ public class CloudAssetsPanel extends JPanel {
 
         JButton clearBtn = new JButton("Clear");
         clearBtn.addActionListener(e -> {
-            assets.clear();
+            synchronized (assets) {
+                assets.clear();
+            }
             tableModel.setRowCount(0);
             detailArea.setText("");
             statusLabel.setText("Assets: 0");
@@ -122,7 +124,9 @@ public class CloudAssetsPanel extends JPanel {
 
     public void addAsset(CloudAsset asset) {
         SwingUtilities.invokeLater(() -> {
-            assets.add(asset);
+            synchronized (assets) {
+                assets.add(asset);
+            }
             tableModel.addRow(new Object[]{
                 asset.provider.displayName,
                 asset.bucketOrAccount,
@@ -132,6 +136,12 @@ public class CloudAssetsPanel extends JPanel {
                 asset.url
             });
         });
+    }
+
+    public List<CloudAsset> getAssets() {
+        synchronized (assets) {
+            return List.copyOf(assets);
+        }
     }
 
     private void showDetail(CloudAsset a) {

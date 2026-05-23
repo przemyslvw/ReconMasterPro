@@ -11,7 +11,8 @@ public class ReconMasterTab implements ITab {
 
     public ReconMasterTab(EndpointsPanel endpointsPanel, TechStackPanel techPanel,
                           SecretsPanel secretsPanel, TimelinePanel timelinePanel, CorsPanel corsPanel,
-                          GraphQLPanel graphqlPanel, CloudAssetsPanel cloudAssetsPanel) {
+                          GraphQLPanel graphqlPanel, CloudAssetsPanel cloudAssetsPanel,
+                          ReportPanel reportPanel) {
         tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Endpoints", endpointsPanel);
         tabbedPane.addTab("Technologies", techPanel);
@@ -20,6 +21,7 @@ public class ReconMasterTab implements ITab {
         tabbedPane.addTab("Timeline", timelinePanel);
         tabbedPane.addTab("GraphQL", graphqlPanel);
         tabbedPane.addTab("Cloud Assets", cloudAssetsPanel);
+        tabbedPane.addTab("Report", reportPanel);
     }
 
     @Override

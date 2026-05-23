@@ -17,6 +17,8 @@ import burp.modules.GraphQLExtractor;
 import burp.modules.CloudAssetsAggregator;
 import burp.utils.CveDatabase;
 import burp.utils.DatabaseManager;
+import burp.ui.ReportPanel;
+import burp.modules.ReportGenerator;
 
 import javax.swing.*;
 
@@ -107,8 +109,19 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             cloudAssetsPanel.setAggregator(cloudAggregator);
             callbacks.registerHttpListener(cloudAggregator);
 
+            // --- Etap 9: Report Generator ---
+            ReportGenerator reportGenerator = new ReportGenerator(
+                endpointsPanel::getEndpoints,
+                techPanel::getTechnologies,
+                secretsPanel::getSecrets,
+                corsPanel::getFindings,
+                cloudAssetsPanel::getAssets,
+                graphqlPanel::getEndpoints
+            );
+            ReportPanel reportPanel = new ReportPanel(reportGenerator);
+
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel, reportPanel);
             callbacks.addSuiteTab(tab);
         });
 

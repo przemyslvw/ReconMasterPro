@@ -99,7 +99,9 @@ public class CorsPanel extends JPanel {
 
         JButton clearBtn = new JButton("Clear");
         clearBtn.addActionListener(e -> {
-            findings.clear();
+            synchronized (findings) {
+                findings.clear();
+            }
             tableModel.setRowCount(0);
             detailArea.setText("Select a finding to view details and PoC HTML.");
             statusLabel.setText("Findings: 0");
@@ -134,11 +136,15 @@ public class CorsPanel extends JPanel {
 
     public void addFinding(CorsFinding finding) {
         SwingUtilities.invokeLater(() -> {
-            boolean duplicate = findings.stream().anyMatch(f ->
-                f.type == finding.type && f.url.equals(finding.url));
-            if (duplicate) return;
+            int size;
+            synchronized (findings) {
+                boolean duplicate = findings.stream().anyMatch(f ->
+                    f.type == finding.type && f.url.equals(finding.url));
+                if (duplicate) return;
 
-            findings.add(finding);
+                findings.add(finding);
+                size = findings.size();
+            }
             tableModel.addRow(new Object[]{
                 finding.severity,
                 finding.type.name(),
@@ -146,8 +152,14 @@ public class CorsPanel extends JPanel {
                 finding.host,
                 finding.url
             });
-            statusLabel.setText("Findings: " + findings.size());
+            statusLabel.setText("Findings: " + size);
         });
+    }
+
+    public List<CorsFinding> getFindings() {
+        synchronized (findings) {
+            return List.copyOf(findings);
+        }
     }
 
     private void showDetail(CorsFinding finding) {
