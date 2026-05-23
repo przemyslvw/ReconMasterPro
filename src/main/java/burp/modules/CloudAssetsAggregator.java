@@ -65,7 +65,7 @@ public class CloudAssetsAggregator implements IHttpListener {
                     if (CLOUD_HEADERS.contains(name)) {
                         String sourceType = name.startsWith("content-security")
                             ? "header-csp" : "header-" + name;
-                        process(CloudAssetDetector.scan(value, sourceUrl, sourceType));
+                        process(CloudAssetDetector.scan(value, sourceUrl, sourceType), messageInfo);
                     }
                 }
 
@@ -85,11 +85,11 @@ public class CloudAssetsAggregator implements IHttpListener {
                 // 2a. Komentarze HTML — osobne źródło
                 Matcher cm = HTML_COMMENT.matcher(body);
                 while (cm.find()) {
-                    process(CloudAssetDetector.scan(cm.group(1), sourceUrl, "html-comment"));
+                    process(CloudAssetDetector.scan(cm.group(1), sourceUrl, "html-comment"), messageInfo);
                 }
 
                 // 2b. Całe body
-                process(CloudAssetDetector.scan(body, sourceUrl, "body"));
+                process(CloudAssetDetector.scan(body, sourceUrl, "body"), messageInfo);
 
             } catch (Exception e) {
                 try {
@@ -99,8 +99,9 @@ public class CloudAssetsAggregator implements IHttpListener {
         });
     }
 
-    private void process(List<CloudAsset> assets) {
+    private void process(List<CloudAsset> assets, IHttpRequestResponse messageInfo) {
         for (CloudAsset asset : assets) {
+            asset.originalRequestResponse = messageInfo;
             if (globalSeen.add(asset.deduplicationKey())) {
                 onAssetFound.accept(asset);
             }

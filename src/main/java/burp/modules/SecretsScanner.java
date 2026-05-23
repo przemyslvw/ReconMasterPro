@@ -162,7 +162,7 @@ public class SecretsScanner implements IHttpListener {
                 String url = BurpExtender.helpers.analyzeRequest(messageInfo)
                     .getUrl().toString();
 
-                List<Secret> found = scan(host, url, body);
+                List<Secret> found = scan(host, url, body, messageInfo);
                 found.forEach(s -> {
                     String key = s.host + "|" + s.type + "|" + s.value;
                     if (seen.add(key)) onSecretFound.accept(s);
@@ -177,6 +177,10 @@ public class SecretsScanner implements IHttpListener {
     }
 
     public List<Secret> scan(String host, String url, String body) {
+        return scan(host, url, body, null);
+    }
+
+    public List<Secret> scan(String host, String url, String body, IHttpRequestResponse originalRequestResponse) {
         List<Secret> results = new ArrayList<>();
 
         // 1. Regex patterns
@@ -196,7 +200,7 @@ public class SecretsScanner implements IHttpListener {
                 double entropy = EntropyCalculator.calculate(value);
 
                 Secret secret = new Secret(sp.name, sp.severity, value,
-                    context, host, url, "regex");
+                    context, host, url, "regex", originalRequestResponse);
                 secret.entropy = entropy;
                 results.add(secret);
             }
@@ -220,7 +224,7 @@ public class SecretsScanner implements IHttpListener {
 
             String context = extractContext(body, em.start(), em.end());
             Secret secret = new Secret("High-Entropy Secret", "MEDIUM", value,
-                context, host, url, "entropy");
+                context, host, url, "entropy", originalRequestResponse);
             secret.entropy = entropy;
             results.add(secret);
         }

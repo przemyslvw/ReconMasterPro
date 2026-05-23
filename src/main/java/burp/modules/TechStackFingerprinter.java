@@ -72,7 +72,10 @@ public class TechStackFingerprinter implements IHttpListener {
                 List<String> cookies = extractCookieNames(headers);
 
                 List<Technology> found = detect(host, headers, body, cookies);
-                found.forEach(onTechFound);
+                found.forEach(tech -> {
+                    tech.originalRequestResponse = messageInfo;
+                    onTechFound.accept(tech);
+                });
 
             } catch (Exception e) {
                 log("Error: " + e.getMessage());

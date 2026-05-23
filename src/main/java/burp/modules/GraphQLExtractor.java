@@ -84,7 +84,7 @@ public class GraphQLExtractor implements IHttpListener {
                             String key = host + "|" + url;
                             GraphQLEndpoint ep = discovered.computeIfAbsent(key,
                                 k -> {
-                                    GraphQLEndpoint e = new GraphQLEndpoint(host, url, "response-body");
+                                    GraphQLEndpoint e = new GraphQLEndpoint(host, url, "response-body", messageInfo);
                                     onEndpointFound.accept(e);
                                     return e;
                                 });
@@ -105,7 +105,7 @@ public class GraphQLExtractor implements IHttpListener {
                     String key = host + "|" + url;
                     final String finalMethod = detectionMethod;
                     discovered.computeIfAbsent(key, k -> {
-                        GraphQLEndpoint ep = new GraphQLEndpoint(host, url, finalMethod);
+                        GraphQLEndpoint ep = new GraphQLEndpoint(host, url, finalMethod, messageInfo);
                         onEndpointFound.accept(ep);
                         return ep;
                     });

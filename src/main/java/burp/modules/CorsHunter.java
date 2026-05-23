@@ -56,6 +56,7 @@ public class CorsHunter implements IHttpListener {
                     CorsAnalyzer.analyze(host, url, method, headers, null);
 
                 finding.ifPresent(f -> {
+                    f.originalRequestResponse = messageInfo;
                     f.pocHtml = CorsPoCGenerator.generate(f);
                     onFinding.accept(f);
                 });
@@ -96,6 +97,7 @@ public class CorsHunter implements IHttpListener {
                         CorsAnalyzer.analyze(host, url, method, responseHeaders, origin);
 
                     finding.ifPresent(f -> {
+                        f.originalRequestResponse = reqResp;
                         f.pocHtml = CorsPoCGenerator.generate(f);
                         onFinding.accept(f);
                     });

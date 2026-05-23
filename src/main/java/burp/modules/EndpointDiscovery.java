@@ -93,7 +93,7 @@ public class EndpointDiscovery implements IHttpListener {
                 String dedupeKey = method + "|" + host + "|" + path;
                 if (!seen.add(dedupeKey)) continue;
 
-                Endpoint ep = new Endpoint(host, method, path, statusCode);
+                Endpoint ep = new Endpoint(host, method, path, statusCode, messageInfo);
                 ep.patternGroup = patternMatcher.normalize(path);
                 ep.riskScore = riskScorer.score(ep);
 
