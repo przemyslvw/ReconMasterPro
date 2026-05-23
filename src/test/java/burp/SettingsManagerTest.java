@@ -1,6 +1,7 @@
 package burp;
 
 import burp.utils.SettingsManager;
+import burp.utils.AiProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -147,5 +148,73 @@ public class SettingsManagerTest {
     void corruptStoredValueFallsBackToDefault() {
         store.put("entropyThreshold", "not-a-number");
         assertEquals(4.0, settings.getEntropyThreshold(), 0.001);
+    }
+
+    // ── AI Integration Settings ─────────────────────────────────────────
+
+    @Test
+    void defaultAiSettingsCorrect() {
+        assertEquals("", settings.getAiGoogleKey());
+        assertEquals("", settings.getAiDeepSeekKey());
+        assertEquals("http://localhost:11434/v1", settings.getAiLocalUrl());
+        assertEquals(AiProvider.GOOGLE, settings.getAiProvider());
+        assertEquals("gemini-1.5-flash", settings.getAiModel());
+        assertTrue(settings.isAiMaskSecrets());
+        assertTrue(settings.isAiMaskDomains());
+    }
+
+    @Test
+    void saveAndLoadAiSettings() {
+        settings.setAiGoogleKey("g-key-123");
+        settings.setAiDeepSeekKey("ds-key-456");
+        settings.setAiLocalUrl("http://127.0.0.1:8000");
+        settings.setAiProvider(AiProvider.LOCAL);
+        settings.setAiModel("llama3");
+        settings.setAiMaskSecrets(false);
+        settings.setAiMaskDomains(false);
+
+        assertEquals("g-key-123", settings.getAiGoogleKey());
+        assertEquals("ds-key-456", settings.getAiDeepSeekKey());
+        assertEquals("http://127.0.0.1:8000", settings.getAiLocalUrl());
+        assertEquals(AiProvider.LOCAL, settings.getAiProvider());
+        assertEquals("llama3", settings.getAiModel());
+        assertFalse(settings.isAiMaskSecrets());
+        assertFalse(settings.isAiMaskDomains());
+    }
+
+    @Test
+    void invalidAiUrlOrModelThrows() {
+        assertThrows(IllegalArgumentException.class, () -> settings.setAiLocalUrl(""));
+        assertThrows(IllegalArgumentException.class, () -> settings.setAiLocalUrl(null));
+        assertThrows(IllegalArgumentException.class, () -> settings.setAiModel(""));
+        assertThrows(IllegalArgumentException.class, () -> settings.setAiModel(null));
+        assertThrows(IllegalArgumentException.class, () -> settings.setAiProvider(null));
+    }
+
+    @Test
+    void resetRestoresAiDefaults() {
+        settings.setAiGoogleKey("key");
+        settings.setAiDeepSeekKey("key");
+        settings.setAiLocalUrl("http://other:123");
+        settings.setAiProvider(AiProvider.DEEPSEEK);
+        settings.setAiModel("deepseek-chat");
+        settings.setAiMaskSecrets(false);
+        settings.setAiMaskDomains(false);
+
+        settings.resetToDefaults();
+
+        assertEquals("", settings.getAiGoogleKey());
+        assertEquals("", settings.getAiDeepSeekKey());
+        assertEquals("http://localhost:11434/v1", settings.getAiLocalUrl());
+        assertEquals(AiProvider.GOOGLE, settings.getAiProvider());
+        assertEquals("gemini-1.5-flash", settings.getAiModel());
+        assertTrue(settings.isAiMaskSecrets());
+        assertTrue(settings.isAiMaskDomains());
+    }
+
+    @Test
+    void corruptAiProviderFallsBackToDefault() {
+        store.put("ai.provider", "UNKNOWN_PROVIDER");
+        assertEquals(AiProvider.GOOGLE, settings.getAiProvider());
     }
 }

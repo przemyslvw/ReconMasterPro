@@ -1,6 +1,7 @@
 package burp.ui;
 
 import burp.utils.SettingsManager;
+import burp.utils.AiProvider;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -14,6 +15,15 @@ public class SettingsPanel extends JPanel {
     private final JCheckBox activeScanCheck;
     private final JComboBox<String> exportFormatCombo;
     private final JSpinner timelineWindowSpinner;
+
+    private final JComboBox<AiProvider> aiProviderCombo;
+    private final JComboBox<String> aiModelCombo;
+    private final JPasswordField aiGoogleKeyField;
+    private final JPasswordField aiDeepSeekKeyField;
+    private final JTextField aiLocalUrlField;
+    private final JCheckBox aiMaskSecretsCheck;
+    private final JCheckBox aiMaskDomainsCheck;
+
     private final JLabel statusLabel;
     private final Runnable onSaveCallback;
 
@@ -82,6 +92,52 @@ public class SettingsPanel extends JPanel {
         reportGroup.add(label("Default export format:"), lc);
         reportGroup.add(exportFormatCombo,               fc);
 
+        // ── AI Integration ───────────────────────────────────────────────
+        JPanel aiGroup = new JPanel(new GridBagLayout());
+        aiGroup.setBorder(new TitledBorder("AI Integration"));
+
+        aiModelCombo = new JComboBox<>();
+        aiModelCombo.setEditable(true);
+
+        aiProviderCombo = new JComboBox<>(AiProvider.values());
+        aiProviderCombo.setSelectedItem(settings.getAiProvider());
+
+        updateModelSuggestions();
+        aiModelCombo.setSelectedItem(settings.getAiModel());
+
+        aiProviderCombo.addActionListener(e -> {
+            AiProvider p = (AiProvider) aiProviderCombo.getSelectedItem();
+            if (p != null) {
+                aiModelCombo.setSelectedItem("");
+                updateModelSuggestions();
+            }
+        });
+
+        aiGoogleKeyField = new JPasswordField(settings.getAiGoogleKey(), 20);
+        aiDeepSeekKeyField = new JPasswordField(settings.getAiDeepSeekKey(), 20);
+        aiLocalUrlField = new JTextField(settings.getAiLocalUrl(), 20);
+
+        aiMaskSecretsCheck = new JCheckBox("Mask secrets (API keys, tokens, credentials) in prompts", settings.isAiMaskSecrets());
+        aiMaskDomainsCheck = new JCheckBox("Mask target domains and IP addresses in prompts", settings.isAiMaskDomains());
+
+        aiGroup.add(label("AI Provider:"), lc);
+        aiGroup.add(aiProviderCombo, fc);
+
+        aiGroup.add(label("Model Name:"), lc);
+        aiGroup.add(aiModelCombo, fc);
+
+        aiGroup.add(label("Google Gemini API Key:"), lc);
+        aiGroup.add(aiGoogleKeyField, fc);
+
+        aiGroup.add(label("DeepSeek API Key:"), lc);
+        aiGroup.add(aiDeepSeekKeyField, fc);
+
+        aiGroup.add(label("Local API URL:"), lc);
+        aiGroup.add(aiLocalUrlField, fc);
+
+        aiGroup.add(aiMaskSecretsCheck, wideConstraints());
+        aiGroup.add(aiMaskDomainsCheck, wideConstraints());
+
         // ── Buttons ──────────────────────────────────────────────────────
         JButton saveBtn  = new JButton("Save");
         JButton resetBtn = new JButton("Reset to Defaults");
@@ -105,15 +161,20 @@ public class SettingsPanel extends JPanel {
         groups.add(timelineGroup);
         groups.add(Box.createVerticalStrut(8));
         groups.add(reportGroup);
+        groups.add(Box.createVerticalStrut(8));
+        groups.add(aiGroup);
 
         JPanel center = new JPanel(new BorderLayout());
         center.add(groups, BorderLayout.NORTH);
+
+        JScrollPane scrollPane = new JScrollPane(center);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
 
         JPanel south = new JPanel(new BorderLayout());
         south.add(statusLabel, BorderLayout.WEST);
         south.add(buttonPanel, BorderLayout.EAST);
 
-        add(center, BorderLayout.CENTER);
+        add(scrollPane, BorderLayout.CENTER);
         add(south,  BorderLayout.SOUTH);
     }
 
@@ -128,6 +189,16 @@ public class SettingsPanel extends JPanel {
                 ((Number) timelineWindowSpinner.getValue()).intValue());
             settings.setDefaultExportFormat(
                 (String) exportFormatCombo.getSelectedItem());
+
+            // Save AI settings
+            settings.setAiProvider((AiProvider) aiProviderCombo.getSelectedItem());
+            Object modelSel = aiModelCombo.getSelectedItem();
+            settings.setAiModel(modelSel != null ? modelSel.toString() : "");
+            settings.setAiGoogleKey(new String(aiGoogleKeyField.getPassword()));
+            settings.setAiDeepSeekKey(new String(aiDeepSeekKeyField.getPassword()));
+            settings.setAiLocalUrl(aiLocalUrlField.getText());
+            settings.setAiMaskSecrets(aiMaskSecretsCheck.isSelected());
+            settings.setAiMaskDomains(aiMaskDomainsCheck.isSelected());
 
             if (onSaveCallback != null) {
                 onSaveCallback.run();
@@ -154,10 +225,67 @@ public class SettingsPanel extends JPanel {
         timelineWindowSpinner.setValue(settings.getTimelineWindowMinutes());
         exportFormatCombo.setSelectedItem(settings.getDefaultExportFormat());
 
+        // Reset AI UI components
+        aiProviderCombo.setSelectedItem(settings.getAiProvider());
+        updateModelSuggestions();
+        aiModelCombo.setSelectedItem(settings.getAiModel());
+        aiGoogleKeyField.setText(settings.getAiGoogleKey());
+        aiDeepSeekKeyField.setText(settings.getAiDeepSeekKey());
+        aiLocalUrlField.setText(settings.getAiLocalUrl());
+        aiMaskSecretsCheck.setSelected(settings.isAiMaskSecrets());
+        aiMaskDomainsCheck.setSelected(settings.isAiMaskDomains());
+
         if (onSaveCallback != null) {
             onSaveCallback.run();
         }
         statusLabel.setText("Settings reset to defaults.");
+    }
+
+    private void updateModelSuggestions() {
+        AiProvider selected = (AiProvider) aiProviderCombo.getSelectedItem();
+        if (selected == null) return;
+
+        // Remember the current text to avoid clearing it unnecessarily
+        Object current = aiModelCombo.getSelectedItem();
+        String currentText = current != null ? current.toString() : "";
+
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+        switch (selected) {
+            case GOOGLE:
+                model.addElement("gemini-1.5-flash");
+                model.addElement("gemini-1.5-pro");
+                model.addElement("gemini-2.0-flash");
+                break;
+            case DEEPSEEK:
+                model.addElement("deepseek-chat");
+                model.addElement("deepseek-reasoner");
+                break;
+            case LOCAL:
+                model.addElement("llama3");
+                model.addElement("mistral");
+                model.addElement("phi3");
+                model.addElement("codellama");
+                break;
+        }
+
+        // If the current custom model is not in the list, add it as the first option
+        boolean exists = false;
+        for (int i = 0; i < model.getSize(); i++) {
+            if (model.getElementAt(i).equalsIgnoreCase(currentText)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists && !currentText.trim().isEmpty()) {
+            model.insertElementAt(currentText, 0);
+        }
+
+        aiModelCombo.setModel(model);
+        if (!currentText.trim().isEmpty()) {
+            aiModelCombo.setSelectedItem(currentText);
+        } else if (model.getSize() > 0) {
+            aiModelCombo.setSelectedIndex(0);
+        }
     }
 
     // ── GridBagConstraints helpers ────────────────────────────────────────
