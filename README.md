@@ -62,7 +62,7 @@ Enable **Mask Secrets** and **Mask Domains** in Settings to anonymize sensitive 
    mvn clean package
    ```
 2. In Burp Suite: **Extensions** → **Installed** → **Add**
-3. Select extension type **Java** and choose the shaded JAR: `target/reconmaster-pro-1.0.0-jar-with-dependencies.jar`
+3. Select extension type **Java** and choose the shaded JAR: `target/reconmaster-pro-1.0.2-jar-with-dependencies.jar`
 
 ## Configuration
 Go to the **ReconMaster Pro** tab and open **Settings**:

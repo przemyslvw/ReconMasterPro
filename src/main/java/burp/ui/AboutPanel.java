@@ -75,7 +75,7 @@ public class AboutPanel extends JPanel {
         // Version / license
         card.add(buildSectionLabel("About"));
         card.add(Box.createVerticalStrut(8));
-        card.add(buildInfoLine("Version", "1.0.0"));
+        card.add(buildInfoLine("Version", "1.0.2"));
         card.add(Box.createVerticalStrut(4));
         card.add(buildInfoLine("License", "MIT"));
         card.add(Box.createVerticalStrut(4));

@@ -7,7 +7,7 @@
 
     <groupId>pl.baluarte</groupId>
     <artifactId>reconmaster-pro</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
 
     <name>ReconMaster Pro</name>

@@ -1,6 +1,6 @@
 Extension-Class: burp.ReconMasterPro
 Extension-Name: ReconMaster Pro
-Extension-Version: 1.0.0
+Extension-Version: 1.0.2
 Min-Burp-Version: 2023.1.1
 Description: Automated offline reconnaissance for Burp Suite Community Edition - endpoint discovery, stack fingerprinting, secrets checking, CORS hunter, and GraphQL parser.
 Author: Przemysław Majdak (przemyslvw)
