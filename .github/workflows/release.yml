@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build fat JAR with Maven
+        run: mvn -B package -DskipTests
+
+      - name: Rename JAR to versioned filename
+        run: |
+          JAR_SRC=$(ls target/reconmaster-pro-*-jar-with-dependencies.jar | head -n 1)
+          JAR_DST="target/reconmaster-pro-${{ steps.version.outputs.VERSION }}-jar-with-dependencies.jar"
+          if [ "$JAR_SRC" != "$JAR_DST" ]; then
+            cp "$JAR_SRC" "$JAR_DST"
+          fi
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" --no-merges)
+          else
+            CHANGES=$(git log --pretty=format:"- %s" --no-merges)
+          fi
+          {
+            echo "CHANGES<<EOF"
+            echo "$CHANGES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "ReconMaster Pro ${{ steps.version.outputs.VERSION }}"
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 ReconMaster Pro ${{ steps.version.outputs.VERSION }}
+
+            Burp Suite extension for automated reconnaissance (Montoya API Edition).
+
+            ### 📥 Installation
+            1. Download `reconmaster-pro-${{ steps.version.outputs.VERSION }}-jar-with-dependencies.jar`
+            2. Open Burp Suite → Extensions → Add
+            3. Select the downloaded `.jar` file
+
+            ### 🔄 Changes in this release
+            ${{ steps.changelog.outputs.CHANGES }}
+
+            ---
+            Built with Java 17 · Requires Burp Suite with Montoya API
+          files: |
+            target/reconmaster-pro-${{ steps.version.outputs.VERSION }}-jar-with-dependencies.jar
