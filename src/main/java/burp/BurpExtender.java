@@ -1,9 +1,11 @@
 package burp;
 
 import burp.modules.EndpointDiscovery;
+import burp.modules.SecretsScanner;
 import burp.modules.TechStackFingerprinter;
 import burp.ui.EndpointsPanel;
 import burp.ui.ReconMasterTab;
+import burp.ui.SecretsPanel;
 import burp.ui.TechStackPanel;
 import burp.utils.CveDatabase;
 
@@ -37,8 +39,13 @@ public class BurpExtender implements IBurpExtender {
             fingerprinter.loadSignatures();
             callbacks.registerHttpListener(fingerprinter);
 
+            // --- Etap 4 ---
+            SecretsPanel secretsPanel = new SecretsPanel();
+            SecretsScanner secretsScanner = new SecretsScanner(secretsPanel::addSecret);
+            callbacks.registerHttpListener(secretsScanner);
+
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel);
             callbacks.addSuiteTab(tab);
         });
 
