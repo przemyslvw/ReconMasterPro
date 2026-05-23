@@ -7,11 +7,11 @@ import java.awt.*;
 
 public class ReconMasterTab implements ITab {
 
-    private final JPanel mainPanel;
+    private final JTabbedPane tabbedPane;
 
-    public ReconMasterTab() {
-        mainPanel = new JPanel(new BorderLayout());
-        mainPanel.add(new JLabel("ReconMaster Pro — loading..."), BorderLayout.CENTER);
+    public ReconMasterTab(EndpointsPanel endpointsPanel) {
+        tabbedPane = new JTabbedPane();
+        tabbedPane.addTab("Endpoints", endpointsPanel);
     }
 
     @Override
@@ -21,6 +21,6 @@ public class ReconMasterTab implements ITab {
 
     @Override
     public Component getUiComponent() {
-        return mainPanel;
+        return tabbedPane;
     }
 }
