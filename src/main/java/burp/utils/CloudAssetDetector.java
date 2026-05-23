@@ -12,42 +12,42 @@ public class CloudAssetDetector {
 
     // S3 virtual-hosted: bucket.s3.amazonaws.com lub bucket.s3.region.amazonaws.com
     private static final Pattern S3_VHOST = Pattern.compile(
-        "https?://([a-z0-9][a-z0-9\\-]{1,61}[a-z0-9])\\.s3(?:\\.[a-z0-9\\-]+)?\\.amazonaws\\.com(?:[/\"'\\s>]|$)",
+        "https?://([a-z0-9][a-z0-9\\-]{1,61}[a-z0-9])\\.s3(?:\\.[a-z0-9\\-]+)?\\.amazonaws\\.com(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // S3 path-style: s3.amazonaws.com/bucket lub s3.region.amazonaws.com/bucket
     private static final Pattern S3_PATH = Pattern.compile(
-        "https?://s3(?:\\.[a-z0-9\\-]+)?\\.amazonaws\\.com/([a-z0-9][a-z0-9\\-\\.]{1,61}[a-z0-9])(?:[/\"'\\s>?]|$)",
+        "https?://s3(?:\\.[a-z0-9\\-]+)?\\.amazonaws\\.com/([a-z0-9][a-z0-9\\-\\.]{1,61}[a-z0-9])(?:[/\"'\\s>?;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // Azure Blob: account.blob.core.windows.net
     private static final Pattern AZURE_BLOB = Pattern.compile(
-        "https?://([a-z0-9]{3,24})\\.blob\\.core\\.windows\\.net(?:[/\"'\\s>]|$)",
+        "https?://([a-z0-9]{3,24})\\.blob\\.core\\.windows\\.net(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // GCS path-style: storage.googleapis.com/bucket
     private static final Pattern GCS_PATH = Pattern.compile(
-        "https?://storage\\.googleapis\\.com/([a-z0-9][a-z0-9\\-_\\.]{1,61}[a-z0-9])(?:[/\"'\\s>?]|$)",
+        "https?://storage\\.googleapis\\.com/([a-z0-9][a-z0-9\\-_\\.]{1,61}[a-z0-9])(?:[/\"'\\s>?;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // GCS virtual-hosted: bucket.storage.googleapis.com
     private static final Pattern GCS_VHOST = Pattern.compile(
-        "https?://([a-z0-9][a-z0-9\\-_\\.]{1,61}[a-z0-9])\\.storage\\.googleapis\\.com(?:[/\"'\\s>]|$)",
+        "https?://([a-z0-9][a-z0-9\\-_\\.]{1,61}[a-z0-9])\\.storage\\.googleapis\\.com(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // CloudFront: id.cloudfront.net
     private static final Pattern CLOUDFRONT = Pattern.compile(
-        "https?://([a-z0-9]+)\\.cloudfront\\.net(?:[/\"'\\s>]|$)",
+        "https?://([a-z0-9]+)\\.cloudfront\\.net(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // DigitalOcean Spaces: bucket.region.digitaloceanspaces.com
     private static final Pattern DO_SPACES = Pattern.compile(
-        "https?://([a-z0-9][a-z0-9\\-]{1,61})\\.([a-z0-9\\-]+)\\.digitaloceanspaces\\.com(?:[/\"'\\s>]|$)",
+        "https?://([a-z0-9][a-z0-9\\-]{1,61})\\.([a-z0-9\\-]+)\\.digitaloceanspaces\\.com(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     // Backblaze B2: f001.backblazeb2.com/file/bucket/
     private static final Pattern BACKBLAZE = Pattern.compile(
-        "https?://[a-z0-9]+\\.backblazeb2\\.com/file/([a-z0-9][a-z0-9\\-_\\.]{1,61})(?:[/\"'\\s>]|$)",
+        "https?://[a-z0-9]+\\.backblazeb2\\.com/file/([a-z0-9][a-z0-9\\-_\\.]{1,61})(?:[/\"'\\s>;]|$)",
         Pattern.CASE_INSENSITIVE);
 
     private static class Extractor {

@@ -188,7 +188,8 @@ public class CloudAssetsPanel extends JPanel {
                     new byte[0]
                 );
 
-                byte[] response = burp.BurpExtender.callbacks.makeHttpRequest(service, request);
+                burp.IHttpRequestResponse reqResp = burp.BurpExtender.callbacks.makeHttpRequest(service, request);
+                byte[] response = reqResp != null ? reqResp.getResponse() : null;
                 if (response == null) {
                     updateStatus(asset, table, modelRow, "ERROR", 0);
                     return;

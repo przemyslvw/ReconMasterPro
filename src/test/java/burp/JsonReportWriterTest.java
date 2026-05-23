@@ -71,7 +71,7 @@ class JsonReportWriterTest {
         // fullValue nie powinien trafić do raportu (pole `value` = zredagowane)
         assertFalse(json.contains("AKIAIOSFODNN7EXAMPLE"),
             "Pełna wartość sekretu nie może trafić do raportu JSON");
-        assertTrue(json.contains("AKIAIOSS"), "Zredagowany prefix musi być w raporcie");
+        assertTrue(json.contains("AKIAIOSF"), "Zredagowany prefix musi być w raporcie");
     }
 
     @Test
