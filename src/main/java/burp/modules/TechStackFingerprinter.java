@@ -1,10 +1,14 @@
 package burp.modules;
 
-import burp.*;
+import burp.ReconMasterPro;
 import burp.models.*;
 import burp.utils.CveDatabase;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.core.ToolType;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,9 +18,8 @@ import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-public class TechStackFingerprinter implements IHttpListener {
+public class TechStackFingerprinter implements HttpHandler {
 
     private List<TechSignature> signatures = new ArrayList<>();
     private final CveDatabase cveDb;
@@ -51,36 +54,38 @@ public class TechStackFingerprinter implements IHttpListener {
     }
 
     @Override
-    public void processHttpMessage(int toolFlag, boolean messageIsRequest,
-                                   IHttpRequestResponse messageInfo) {
-        if (messageIsRequest) return;
+    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
+        return RequestToBeSentAction.continueWith(requestToBeSent);
+    }
 
-        executor.submit(() -> {
-            try {
-                IHttpService service = messageInfo.getHttpService();
-                String host = service.getHost();
+    @Override
+    public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
+        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+            executor.submit(() -> {
+                try {
+                    HttpRequest request = responseReceived.initiatingRequest();
+                    if (request == null) return;
 
-                byte[] response = messageInfo.getResponse();
-                if (response == null) return;
+                    String host = request.httpService().host();
 
-                IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(response);
-                List<String> headers = respInfo.getHeaders();
+                    String body = responseReceived.bodyToString();
+                    if (body == null || body.isBlank()) return;
 
-                int bodyOffset = respInfo.getBodyOffset();
-                String body = new String(response, bodyOffset, response.length - bodyOffset, "UTF-8");
+                    List<String> headers = responseReceived.headers().stream().map(h -> h.toString()).toList();
+                    List<String> cookies = extractCookieNames(headers);
 
-                List<String> cookies = extractCookieNames(headers);
+                    List<Technology> found = detect(host, headers, body, cookies);
+                    found.forEach(tech -> {
+                        tech.originalRequestResponse = HttpRequestResponse.httpRequestResponse(request, responseReceived);
+                        onTechFound.accept(tech);
+                    });
 
-                List<Technology> found = detect(host, headers, body, cookies);
-                found.forEach(tech -> {
-                    tech.originalRequestResponse = messageInfo;
-                    onTechFound.accept(tech);
-                });
-
-            } catch (Exception e) {
-                log("Error: " + e.getMessage());
-            }
-        });
+                } catch (Exception e) {
+                    log("Error: " + e.getMessage());
+                }
+            });
+        }
+        return ResponseReceivedAction.continueWith(responseReceived);
     }
 
     public List<Technology> detect(String host, List<String> headers,
@@ -177,9 +182,9 @@ public class TechStackFingerprinter implements IHttpListener {
     public void shutdown() { executor.shutdownNow(); }
 
     private void log(String msg) {
-        try {
-            BurpExtender.callbacks.printOutput("[TechFP] " + msg);
-        } catch (Exception ignored) {
+        if (ReconMasterPro.api != null) {
+            ReconMasterPro.api.logging().logToOutput("[TechFP] " + msg);
+        } else {
             System.out.println("[TechFP] " + msg);
         }
     }

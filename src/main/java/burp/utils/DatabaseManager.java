@@ -1,6 +1,5 @@
 package burp.utils;
 
-import burp.BurpExtender;
 import burp.models.*;
 
 import java.io.File;
@@ -327,7 +326,6 @@ public class DatabaseManager {
     }
 
     private void log(String msg) {
-        try { BurpExtender.callbacks.printOutput("[DB] " + msg); }
-        catch (Exception ignored) { System.out.println("[DB] " + msg); }
+        System.out.println("[DB] " + msg);
     }
 }

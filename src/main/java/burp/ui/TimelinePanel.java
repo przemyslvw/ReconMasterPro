@@ -1,5 +1,6 @@
 package burp.ui;
 
+import burp.api.montoya.MontoyaApi;
 import burp.models.TimelineEvent;
 import burp.utils.DatabaseManager;
 
@@ -19,6 +20,7 @@ public class TimelinePanel extends JPanel {
     private static final DateTimeFormatter FMT =
         DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
 
+    private final MontoyaApi api;
     private final DefaultTableModel model;
     private final List<TimelineEvent> events = new ArrayList<>();
     private final JLabel badgeLabel;
@@ -27,8 +29,9 @@ public class TimelinePanel extends JPanel {
     // opcjonalnie: DatabaseManager do query historii
     private DatabaseManager db;
 
-    public TimelinePanel() {
+    public TimelinePanel(MontoyaApi api) {
         super(new BorderLayout());
+        this.api = api;
 
         model = new DefaultTableModel(COLUMNS, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }

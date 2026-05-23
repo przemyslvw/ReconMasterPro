@@ -1,6 +1,6 @@
 package burp.models;
 
-import burp.IHttpRequestResponse;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import java.time.Instant;
 
 public class GraphQLEndpoint {
@@ -10,7 +10,7 @@ public class GraphQLEndpoint {
     public boolean introspectionEnabled;
     public boolean schemaLoaded;
     public Instant discoveredAt;
-    public transient IHttpRequestResponse originalRequestResponse;
+    public transient HttpRequestResponse originalRequestResponse;
 
     public GraphQLEndpoint(String host, String url, String detectionMethod) {
         this.host = host;
@@ -21,7 +21,7 @@ public class GraphQLEndpoint {
         this.discoveredAt = Instant.now();
     }
 
-    public GraphQLEndpoint(String host, String url, String detectionMethod, IHttpRequestResponse originalRequestResponse) {
+    public GraphQLEndpoint(String host, String url, String detectionMethod, HttpRequestResponse originalRequestResponse) {
         this(host, url, detectionMethod);
         this.originalRequestResponse = originalRequestResponse;
     }

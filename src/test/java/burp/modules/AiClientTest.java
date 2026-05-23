@@ -1,8 +1,10 @@
 package burp.modules;
 
-import burp.IBurpExtenderCallbacks;
 import burp.utils.SettingsManager;
 import burp.utils.AiProvider;
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.persistence.Persistence;
+import burp.api.montoya.persistence.Preferences;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -32,7 +34,7 @@ public class AiClientTest {
     private HttpServer server;
     private int port;
     private Map<String, String> configStore;
-    private IBurpExtenderCallbacks fakeCallbacks;
+    private MontoyaApi fakeApi;
     private SettingsManager settings;
     private AiClient client;
 
@@ -46,20 +48,44 @@ public class AiClientTest {
     @BeforeEach
     void setUp() throws IOException {
         configStore = new HashMap<>();
-        fakeCallbacks = (IBurpExtenderCallbacks) Proxy.newProxyInstance(
-            IBurpExtenderCallbacks.class.getClassLoader(),
-            new Class<?>[]{IBurpExtenderCallbacks.class},
+        
+        Preferences fakePreferences = (Preferences) Proxy.newProxyInstance(
+            Preferences.class.getClassLoader(),
+            new Class<?>[]{Preferences.class},
             (proxy, method, args) -> {
-                if ("saveExtensionSetting".equals(method.getName())) {
+                if ("setString".equals(method.getName())) {
                     configStore.put((String) args[0], (String) args[1]);
                     return null;
-                } else if ("loadExtensionSetting".equals(method.getName())) {
+                } else if ("getString".equals(method.getName())) {
                     return configStore.get((String) args[0]);
                 }
                 return null;
             }
         );
-        settings = new SettingsManager(fakeCallbacks);
+
+        Persistence fakePersistence = (Persistence) Proxy.newProxyInstance(
+            Persistence.class.getClassLoader(),
+            new Class<?>[]{Persistence.class},
+            (proxy, method, args) -> {
+                if ("preferences".equals(method.getName())) {
+                    return fakePreferences;
+                }
+                return null;
+            }
+        );
+
+        fakeApi = (MontoyaApi) Proxy.newProxyInstance(
+            MontoyaApi.class.getClassLoader(),
+            new Class<?>[]{MontoyaApi.class},
+            (proxy, method, args) -> {
+                if ("persistence".equals(method.getName())) {
+                    return fakePersistence;
+                }
+                return null;
+            }
+        );
+
+        settings = new SettingsManager(fakeApi);
         client = new AiClient(settings);
 
         // Start mock HTTP Server on random port

@@ -1,19 +1,22 @@
 package burp.ui;
 
-import burp.BurpExtender;
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.ui.editor.EditorOptions;
+import burp.api.montoya.ui.editor.HttpRequestEditor;
+import burp.api.montoya.ui.editor.HttpResponseEditor;
 import burp.models.Secret;
-import burp.IMessageEditor;
-import burp.IMessageEditorController;
-import burp.IHttpRequestResponse;
-import burp.IHttpService;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SecretsPanel extends JPanel implements IMessageEditorController {
+public class SecretsPanel extends JPanel {
 
     private static final String[] COLUMNS =
         {"Severity", "Type", "Value", "Entropy", "Detected By", "Host", "URL"};
@@ -21,11 +24,11 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
     private final DefaultTableModel model;
     private final List<Secret> secrets = new ArrayList<>();
     private final JTextArea contextArea;
-    private IHttpRequestResponse currentlySelectedMessage;
-    private IMessageEditor requestEditor;
-    private IMessageEditor responseEditor;
+    private HttpRequestResponse currentlySelectedMessage;
+    private final HttpRequestEditor requestEditor;
+    private final HttpResponseEditor responseEditor;
 
-    public SecretsPanel() {
+    public SecretsPanel(MontoyaApi api) {
         super(new BorderLayout());
 
         model = new DefaultTableModel(COLUMNS, 0) {
@@ -73,13 +76,13 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
         contextArea.setWrapStyleWord(false);
 
         // Native Burp Message Editors
-        requestEditor = BurpExtender.callbacks.createMessageEditor(this, false);
-        responseEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+        requestEditor = api.userInterface().createHttpRequestEditor(EditorOptions.READ_ONLY);
+        responseEditor = api.userInterface().createHttpResponseEditor(EditorOptions.READ_ONLY);
 
         JTabbedPane detailTabs = new JTabbedPane();
         detailTabs.addTab("Details", new JScrollPane(contextArea));
-        detailTabs.addTab("Request", requestEditor.getComponent());
-        detailTabs.addTab("Response", responseEditor.getComponent());
+        detailTabs.addTab("Request", requestEditor.uiComponent());
+        detailTabs.addTab("Response", responseEditor.uiComponent());
 
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
@@ -87,8 +90,8 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
             if (viewRow < 0) {
                 currentlySelectedMessage = null;
                 contextArea.setText("");
-                requestEditor.setMessage(new byte[0], true);
-                responseEditor.setMessage(new byte[0], false);
+                requestEditor.setRequest(null);
+                responseEditor.setResponse(null);
                 return;
             }
             int modelRow = table.convertRowIndexToModel(viewRow);
@@ -96,11 +99,15 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
             showDetail(s);
             currentlySelectedMessage = s.originalRequestResponse;
             if (currentlySelectedMessage != null) {
-                requestEditor.setMessage(currentlySelectedMessage.getRequest(), true);
-                responseEditor.setMessage(currentlySelectedMessage.getResponse(), false);
+                requestEditor.setRequest(currentlySelectedMessage.request());
+                if (currentlySelectedMessage.response() != null) {
+                    responseEditor.setResponse(currentlySelectedMessage.response());
+                } else {
+                    responseEditor.setResponse(null);
+                }
             } else {
-                requestEditor.setMessage(new byte[0], true);
-                responseEditor.setMessage(new byte[0], false);
+                requestEditor.setRequest(null);
+                responseEditor.setResponse(null);
             }
         });
 
@@ -199,11 +206,10 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
         return url != null && url.length() > 80 ? url.substring(0, 77) + "..." : url;
     }
 
-    // kolorowanie identyczne jak w TechStackPanel — CRITICAL/HIGH/MEDIUM/LOW
     private static class SeverityCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean selected, boolean focus, int row, int column) {
+                 boolean selected, boolean focus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, selected, focus, row, column);
             if (!selected) {
                 String sev = (String) table.getValueAt(row, 0);
@@ -221,20 +227,5 @@ public class SecretsPanel extends JPanel implements IMessageEditorController {
             }
             return c;
         }
-    }
-
-    @Override
-    public IHttpService getHttpService() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getHttpService() : null;
-    }
-
-    @Override
-    public byte[] getRequest() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getRequest() : null;
-    }
-
-    @Override
-    public byte[] getResponse() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getResponse() : null;
     }
 }

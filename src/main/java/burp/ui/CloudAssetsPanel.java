@@ -1,5 +1,8 @@
 package burp.ui;
 
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.models.CloudAsset;
 import burp.models.CloudProvider;
 import burp.modules.CloudAssetsAggregator;
@@ -20,11 +23,13 @@ public class CloudAssetsPanel extends JPanel {
     private final List<CloudAsset> assets = new ArrayList<>();
     private final JLabel statusLabel;
     private final JTextArea detailArea;
+    private final MontoyaApi api;
 
     private CloudAssetsAggregator aggregator;
 
-    public CloudAssetsPanel() {
+    public CloudAssetsPanel(MontoyaApi api) {
         super(new BorderLayout());
+        this.api = api;
 
         tableModel = new DefaultTableModel(COLUMNS, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -177,10 +182,6 @@ public class CloudAssetsPanel extends JPanel {
         detailArea.setCaretPosition(0);
     }
 
-    /**
-     * Wysyła żądanie HEAD przez Burp's makeHttpRequest — bez bezpośrednich połączeń.
-     * Wynik: 200 → PUBLIC, 403/401 → PRIVATE, 404 → NOT_FOUND.
-     */
     private void checkAccess(CloudAsset asset, JTable table, int modelRow) {
         new Thread(() -> {
             try {
@@ -190,32 +191,24 @@ public class CloudAssetsPanel extends JPanel {
                 boolean useHttps = url.getProtocol().equalsIgnoreCase("https");
                 if (port == -1) port = useHttps ? 443 : 80;
 
-                burp.IHttpService service = burp.BurpExtender.helpers.buildHttpService(
-                    host, port, useHttps);
+                burp.api.montoya.http.HttpService service = burp.api.montoya.http.HttpService.httpService(host, port, useHttps);
 
-                String path = url.getPath().isEmpty() ? "/" : url.getPath();
-                if (url.getQuery() != null) path += "?" + url.getQuery();
+                HttpRequest request = HttpRequest.httpRequest()
+                    .withService(service)
+                    .withMethod("HEAD")
+                    .withPath(url.getPath().isEmpty() ? "/" : url.getPath())
+                    .withHeader("Host", host)
+                    .withHeader("User-Agent", "Mozilla/5.0")
+                    .withHeader("Accept", "*/*")
+                    .withHeader("Connection", "close");
 
-                byte[] request = burp.BurpExtender.helpers.buildHttpMessage(
-                    List.of(
-                        "HEAD " + path + " HTTP/1.1",
-                        "Host: " + host,
-                        "User-Agent: Mozilla/5.0",
-                        "Accept: */*",
-                        "Connection: close"
-                    ),
-                    new byte[0]
-                );
-
-                burp.IHttpRequestResponse reqResp = burp.BurpExtender.callbacks.makeHttpRequest(service, request);
-                byte[] response = reqResp != null ? reqResp.getResponse() : null;
-                if (response == null) {
+                HttpRequestResponse reqResp = api.http().sendRequest(request);
+                if (reqResp == null || reqResp.response() == null) {
                     updateStatus(asset, table, modelRow, "ERROR", 0);
                     return;
                 }
 
-                burp.IResponseInfo respInfo = burp.BurpExtender.helpers.analyzeResponse(response);
-                int statusCode = respInfo.getStatusCode();
+                int statusCode = reqResp.response().statusCode();
 
                 String status = "ERROR";
                 switch (statusCode / 100) {
@@ -233,10 +226,9 @@ public class CloudAssetsPanel extends JPanel {
 
             } catch (Exception ex) {
                 updateStatus(asset, table, modelRow, "ERROR", 0);
-                try {
-                    burp.BurpExtender.callbacks.printError(
-                        "CloudAssets checkAccess: " + ex.getMessage());
-                } catch (Exception ignored) {}
+                if (api != null) {
+                    api.logging().logToError("CloudAssets checkAccess: " + ex.getMessage());
+                }
             }
         }, "ReconMaster-CloudCheck").start();
     }
@@ -280,7 +272,6 @@ public class CloudAssetsPanel extends JPanel {
         return s != null && s.length() > max ? s.substring(0, max - 3) + "..." : s;
     }
 
-    // ── Renderer — kolorowanie wg statusu dostępu ─────────────────────────
     private static class AccessStatusRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
@@ -291,19 +282,19 @@ public class CloudAssetsPanel extends JPanel {
                 String status = String.valueOf(table.getValueAt(row, 2));
                 switch (status) {
                     case "PUBLIC":
-                        c.setBackground(new Color(255, 160, 160)); // czerwony — HIGH risk
+                        c.setBackground(new Color(255, 160, 160));
                         break;
                     case "PRIVATE":
-                        c.setBackground(new Color(210, 235, 210)); // zielony — OK
+                        c.setBackground(new Color(210, 235, 210));
                         break;
                     case "NOT_FOUND":
-                        c.setBackground(new Color(230, 230, 230)); // szary
+                        c.setBackground(new Color(230, 230, 230));
                         break;
                     case "ERROR":
-                        c.setBackground(new Color(255, 220, 180)); // pomarańczowy
+                        c.setBackground(new Color(255, 220, 180));
                         break;
                     default:
-                        c.setBackground(Color.WHITE);              // UNKNOWN
+                        c.setBackground(Color.WHITE);
                         break;
                 }
             }

@@ -1,5 +1,6 @@
 package burp.ui;
 
+import burp.api.montoya.MontoyaApi;
 import burp.models.GraphQLEndpoint;
 import burp.models.GraphQLField;
 import burp.models.GraphQLType;
@@ -20,6 +21,7 @@ public class GraphQLPanel extends JPanel {
     private static final String[] COLUMNS =
         {"Host", "URL", "Detected By", "Introspection", "Schema"};
 
+    private final MontoyaApi api;
     private final DefaultTableModel tableModel;
     private final List<GraphQLEndpoint> endpoints = new ArrayList<>();
     private final Map<String, GraphQLSchemaParser.ParsedSchema> schemas = new ConcurrentHashMap<>();
@@ -31,8 +33,9 @@ public class GraphQLPanel extends JPanel {
 
     private GraphQLExtractor extractor;
 
-    public GraphQLPanel() {
+    public GraphQLPanel(MontoyaApi api) {
         super(new BorderLayout());
+        this.api = api;
 
         // ── Tabela endpointów ────────────────────────────────────────
         tableModel = new DefaultTableModel(COLUMNS, 0) {

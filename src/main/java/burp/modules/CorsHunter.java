@@ -1,16 +1,19 @@
 package burp.modules;
 
-import burp.*;
+import burp.ReconMasterPro;
 import burp.models.CorsFinding;
 import burp.utils.CorsAnalyzer;
 import burp.utils.CorsPoCGenerator;
+import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.core.ToolType;
 
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-public class CorsHunter implements IHttpListener {
+public class CorsHunter implements HttpHandler {
 
     private static final List<String> PROBE_ORIGINS = List.of(
         "https://evil.attacker.com",
@@ -32,39 +35,45 @@ public class CorsHunter implements IHttpListener {
     }
 
     @Override
-    public void processHttpMessage(int toolFlag, boolean messageIsRequest,
-                                   IHttpRequestResponse messageInfo) {
-        if (messageIsRequest) return;
+    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
+        return RequestToBeSentAction.continueWith(requestToBeSent);
+    }
 
-        executor.submit(() -> {
-            try {
-                byte[] response = messageInfo.getResponse();
-                if (response == null) return;
+    @Override
+    public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
+        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+            executor.submit(() -> {
+                try {
+                    HttpRequest request = responseReceived.initiatingRequest();
+                    if (request == null) return;
 
-                IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(response);
-                Map<String, String> headers = parseHeaders(respInfo.getHeaders());
+                    String body = responseReceived.bodyToString();
+                    if (body == null) return;
 
-                if (!headers.containsKey("access-control-allow-origin")) return;
+                    List<String> rawHeaders = responseReceived.headers().stream().map(h -> h.toString()).toList();
+                    Map<String, String> headers = parseHeaders(rawHeaders);
 
-                IRequestInfo reqInfo = BurpExtender.helpers.analyzeRequest(messageInfo);
-                IHttpService service = messageInfo.getHttpService();
-                String host   = service.getHost();
-                String url    = reqInfo.getUrl().toString();
-                String method = reqInfo.getMethod();
+                    if (!headers.containsKey("access-control-allow-origin")) return;
 
-                Optional<CorsFinding> finding =
-                    CorsAnalyzer.analyze(host, url, method, headers, null);
+                    String host   = request.httpService().host();
+                    String url    = request.url();
+                    String method = request.method();
 
-                finding.ifPresent(f -> {
-                    f.originalRequestResponse = messageInfo;
-                    f.pocHtml = CorsPoCGenerator.generate(f);
-                    onFinding.accept(f);
-                });
+                    Optional<CorsFinding> finding =
+                        CorsAnalyzer.analyze(host, url, method, headers, null);
 
-            } catch (Exception e) {
-                logError("Passive analysis error: " + e.getMessage());
-            }
-        });
+                    finding.ifPresent(f -> {
+                        f.originalRequestResponse = HttpRequestResponse.httpRequestResponse(request, responseReceived);
+                        f.pocHtml = CorsPoCGenerator.generate(f);
+                        onFinding.accept(f);
+                    });
+
+                } catch (Exception e) {
+                    logError("Passive analysis error: " + e.getMessage());
+                }
+            });
+        }
+        return ResponseReceivedAction.continueWith(responseReceived);
     }
 
     public void probe(String host, String url, String method) {
@@ -78,20 +87,28 @@ public class CorsHunter implements IHttpListener {
                 boolean useHttps = parsed.getProtocol().equalsIgnoreCase("https");
                 if (port == -1) port = useHttps ? 443 : 80;
 
-                IHttpService service = BurpExtender.helpers.buildHttpService(
-                    host, port, useHttps);
+                burp.api.montoya.http.HttpService service = burp.api.montoya.http.HttpService.httpService(host, port, useHttps);
 
                 for (String originTemplate : PROBE_ORIGINS) {
                     String origin = originTemplate.contains("%s")
                         ? String.format(originTemplate, host)
                         : originTemplate;
 
-                    byte[] request = buildRequest(parsed.getPath(), host, method, origin);
-                    IHttpRequestResponse reqResp = BurpExtender.callbacks.makeHttpRequest(service, request);
-                    if (reqResp == null || reqResp.getResponse() == null) continue;
+                    HttpRequest request = HttpRequest.httpRequest()
+                        .withService(service)
+                        .withMethod(method)
+                        .withPath(parsed.getPath())
+                        .withHeader("Host", host)
+                        .withHeader("Origin", origin)
+                        .withHeader("Accept", "*/*")
+                        .withHeader("User-Agent", "Mozilla/5.0")
+                        .withHeader("Connection", "close");
 
-                    IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(reqResp.getResponse());
-                    Map<String, String> responseHeaders = parseHeaders(respInfo.getHeaders());
+                    HttpRequestResponse reqResp = ReconMasterPro.api.http().sendRequest(request);
+                    if (reqResp == null || reqResp.response() == null) continue;
+
+                    List<String> rawHeaders = reqResp.response().headers().stream().map(h -> h.toString()).toList();
+                    Map<String, String> responseHeaders = parseHeaders(rawHeaders);
 
                     Optional<CorsFinding> finding =
                         CorsAnalyzer.analyze(host, url, method, responseHeaders, origin);
@@ -107,18 +124,6 @@ public class CorsHunter implements IHttpListener {
                 logError("Probe error for " + url + ": " + e.getMessage());
             }
         });
-    }
-
-    private byte[] buildRequest(String path, String host, String method, String origin) {
-        List<String> headers = new ArrayList<>(List.of(
-            method + " " + path + " HTTP/1.1",
-            "Host: " + host,
-            "Origin: " + origin,
-            "Accept: */*",
-            "User-Agent: Mozilla/5.0",
-            "Connection: close"
-        ));
-        return BurpExtender.helpers.buildHttpMessage(headers, null);
     }
 
     private Map<String, String> parseHeaders(List<String> rawHeaders) {
@@ -140,7 +145,10 @@ public class CorsHunter implements IHttpListener {
     }
 
     private void logError(String msg) {
-        try { BurpExtender.callbacks.printError("[CORS] " + msg); }
-        catch (Exception ignored) { System.err.println("[CORS] " + msg); }
+        if (ReconMasterPro.api != null) {
+            ReconMasterPro.api.logging().logToError("[CORS] " + msg);
+        } else {
+            System.err.println("[CORS] " + msg);
+        }
     }
 }

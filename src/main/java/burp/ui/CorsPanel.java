@@ -1,22 +1,22 @@
 package burp.ui;
 
-import burp.BurpExtender;
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.ui.editor.EditorOptions;
+import burp.api.montoya.ui.editor.HttpRequestEditor;
+import burp.api.montoya.ui.editor.HttpResponseEditor;
 import burp.models.CorsFinding;
 import burp.modules.CorsHunter;
-import burp.IMessageEditor;
-import burp.IMessageEditorController;
-import burp.IHttpRequestResponse;
-import burp.IHttpService;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CorsPanel extends JPanel implements IMessageEditorController {
+public class CorsPanel extends JPanel {
 
     private static final String[] COLUMNS =
         {"Severity", "Type", "Method", "Host", "URL"};
@@ -25,13 +25,13 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
     private final List<CorsFinding> findings = new ArrayList<>();
     private final JTextArea detailArea;
     private final JLabel statusLabel;
-    private IHttpRequestResponse currentlySelectedMessage;
-    private IMessageEditor requestEditor;
-    private IMessageEditor responseEditor;
+    private HttpRequestResponse currentlySelectedMessage;
+    private final HttpRequestEditor requestEditor;
+    private final HttpResponseEditor responseEditor;
 
     private CorsHunter hunter;
 
-    public CorsPanel() {
+    public CorsPanel(MontoyaApi api) {
         super(new BorderLayout());
 
         tableModel = new DefaultTableModel(COLUMNS, 0) {
@@ -72,13 +72,13 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
         detailArea.setText("Select a finding to view details and PoC HTML.");
 
         // Native Burp Message Editors
-        requestEditor = BurpExtender.callbacks.createMessageEditor(this, false);
-        responseEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+        requestEditor = api.userInterface().createHttpRequestEditor(EditorOptions.READ_ONLY);
+        responseEditor = api.userInterface().createHttpResponseEditor(EditorOptions.READ_ONLY);
 
         JTabbedPane detailTabs = new JTabbedPane();
         detailTabs.addTab("Details & PoC", new JScrollPane(detailArea));
-        detailTabs.addTab("Request", requestEditor.getComponent());
-        detailTabs.addTab("Response", responseEditor.getComponent());
+        detailTabs.addTab("Request", requestEditor.uiComponent());
+        detailTabs.addTab("Response", responseEditor.uiComponent());
 
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
@@ -86,8 +86,8 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
             if (viewRow < 0) {
                 currentlySelectedMessage = null;
                 detailArea.setText("Select a finding to view details and PoC HTML.");
-                requestEditor.setMessage(new byte[0], true);
-                responseEditor.setMessage(new byte[0], false);
+                requestEditor.setRequest(null);
+                responseEditor.setResponse(null);
                 return;
             }
             int modelRow = table.convertRowIndexToModel(viewRow);
@@ -95,11 +95,15 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
             showDetail(f);
             currentlySelectedMessage = f.originalRequestResponse;
             if (currentlySelectedMessage != null) {
-                requestEditor.setMessage(currentlySelectedMessage.getRequest(), true);
-                responseEditor.setMessage(currentlySelectedMessage.getResponse(), false);
+                requestEditor.setRequest(currentlySelectedMessage.request());
+                if (currentlySelectedMessage.response() != null) {
+                    responseEditor.setResponse(currentlySelectedMessage.response());
+                } else {
+                    responseEditor.setResponse(null);
+                }
             } else {
-                requestEditor.setMessage(new byte[0], true);
-                responseEditor.setMessage(new byte[0], false);
+                requestEditor.setRequest(null);
+                responseEditor.setResponse(null);
             }
         });
 
@@ -156,8 +160,8 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
             tableModel.setRowCount(0);
             detailArea.setText("Select a finding to view details and PoC HTML.");
             statusLabel.setText("Findings: 0");
-            requestEditor.setMessage(new byte[0], true);
-            responseEditor.setMessage(new byte[0], false);
+            requestEditor.setRequest(null);
+            responseEditor.setResponse(null);
         });
 
         toolbar.add(new JLabel("URL:"));
@@ -238,7 +242,7 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
     private static class SeverityRowRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean selected, boolean focus, int row, int column) {
+                 boolean selected, boolean focus, int row, int column) {
             Component c = super.getTableCellRendererComponent(
                 table, value, selected, focus, row, column);
             if (!selected) {
@@ -264,20 +268,5 @@ public class CorsPanel extends JPanel implements IMessageEditorController {
             }
             return c;
         }
-    }
-
-    @Override
-    public IHttpService getHttpService() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getHttpService() : null;
-    }
-
-    @Override
-    public byte[] getRequest() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getRequest() : null;
-    }
-
-    @Override
-    public byte[] getResponse() {
-        return currentlySelectedMessage != null ? currentlySelectedMessage.getResponse() : null;
     }
 }

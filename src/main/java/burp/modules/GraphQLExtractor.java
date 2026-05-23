@@ -1,16 +1,21 @@
 package burp.modules;
 
-import burp.*;
+import burp.ReconMasterPro;
 import burp.models.GraphQLEndpoint;
 import burp.utils.GraphQLDetector;
 import burp.utils.GraphQLSchemaParser;
+import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.core.ToolType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class GraphQLExtractor implements IHttpListener {
+public class GraphQLExtractor implements HttpHandler {
 
     // klucz: host|url → endpoint (deduplikacja)
     private final Map<String, GraphQLEndpoint> discovered = new ConcurrentHashMap<>();
@@ -32,91 +37,96 @@ public class GraphQLExtractor implements IHttpListener {
     }
 
     @Override
-    public void processHttpMessage(int toolFlag, boolean messageIsRequest,
-                                   IHttpRequestResponse messageInfo) {
-        executor.submit(() -> {
-            try {
-                IHttpService service = messageInfo.getHttpService();
-                String host = service.getHost();
-                String scheme = service.getProtocol();
-                int port = service.getPort();
+    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
+        if (requestToBeSent.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+            executor.submit(() -> processRequest(requestToBeSent));
+        }
+        return RequestToBeSentAction.continueWith(requestToBeSent);
+    }
 
-                IRequestInfo reqInfo = BurpExtender.helpers.analyzeRequest(messageInfo);
-                String path = reqInfo.getUrl().getPath();
-                String portSuffix = (port == 80 || port == 443) ? "" : ":" + port;
-                String url = scheme + "://" + host + portSuffix + path;
+    @Override
+    public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
+        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+            executor.submit(() -> processResponse(responseReceived));
+        }
+        return ResponseReceivedAction.continueWith(responseReceived);
+    }
 
-                String detectionMethod = null;
+    private void processRequest(HttpRequestToBeSent request) {
+        try {
+            String host = request.httpService().host();
+            String path = request.path();
+            String url = request.url();
 
-                if (messageIsRequest) {
-                    // detekcja z żądania
-                    byte[] req = messageInfo.getRequest();
-                    int bodyOffset = reqInfo.getBodyOffset();
-                    String body = new String(req, bodyOffset, req.length - bodyOffset, "UTF-8");
+            String body = request.bodyToString();
+            List<String> headers = request.headers().stream().map(h -> h.toString()).toList();
+            String contentType = getContentType(headers);
 
-                    String contentType = reqInfo.getHeaders().stream()
-                        .filter(h -> h.toLowerCase().startsWith("content-type:"))
-                        .findFirst().orElse("").toLowerCase();
-
-                    if (GraphQLDetector.isGraphQLPath(path)) {
-                        detectionMethod = "path";
-                    } else if (GraphQLDetector.isGraphQLContentType(contentType)) {
-                        detectionMethod = "content-type";
-                    } else if (GraphQLDetector.isGraphQLRequestBody(body)) {
-                        detectionMethod = "request-body";
-                    }
-
-                } else {
-                    // detekcja i parsowanie z odpowiedzi
-                    byte[] response = messageInfo.getResponse();
-                    if (response == null) return;
-
-                    IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(response);
-                    int bodyOffset = respInfo.getBodyOffset();
-                    String body = new String(response, bodyOffset,
-                        response.length - bodyOffset, "UTF-8");
-
-                    if (GraphQLDetector.isGraphQLResponseBody(body)) {
-                        detectionMethod = "response-body";
-
-                        // jeśli to odpowiedź introspection — parsuj od razu
-                        if (GraphQLDetector.isIntrospectionResponse(body)) {
-                            String key = host + "|" + url;
-                            GraphQLEndpoint ep = discovered.computeIfAbsent(key,
-                                k -> {
-                                    GraphQLEndpoint e = new GraphQLEndpoint(host, url, "response-body", messageInfo);
-                                    onEndpointFound.accept(e);
-                                    return e;
-                                });
-
-                            ep.introspectionEnabled = true;
-                            GraphQLSchemaParser.ParsedSchema schema =
-                                GraphQLSchemaParser.parse(body);
-                            if (!schema.types.isEmpty()) {
-                                ep.schemaLoaded = true;
-                                onSchemaReady.accept(ep, schema);
-                            }
-                            return;
-                        }
-                    }
-                }
-
-                if (detectionMethod != null) {
-                    String key = host + "|" + url;
-                    final String finalMethod = detectionMethod;
-                    discovered.computeIfAbsent(key, k -> {
-                        GraphQLEndpoint ep = new GraphQLEndpoint(host, url, finalMethod, messageInfo);
-                        onEndpointFound.accept(ep);
-                        return ep;
-                    });
-                }
-
-            } catch (Exception e) {
-                try {
-                    BurpExtender.callbacks.printError("GraphQLExtractor: " + e.getMessage());
-                } catch (Exception ignored) {}
+            String detectionMethod = null;
+            if (GraphQLDetector.isGraphQLPath(path)) {
+                detectionMethod = "path";
+            } else if (GraphQLDetector.isGraphQLContentType(contentType)) {
+                detectionMethod = "content-type";
+            } else if (GraphQLDetector.isGraphQLRequestBody(body)) {
+                detectionMethod = "request-body";
             }
-        });
+
+            if (detectionMethod != null) {
+                String key = host + "|" + url;
+                final String finalMethod = detectionMethod;
+                discovered.computeIfAbsent(key, k -> {
+                    HttpRequestResponse reqResp = HttpRequestResponse.httpRequestResponse(request, null);
+                    GraphQLEndpoint ep = new GraphQLEndpoint(host, url, finalMethod, reqResp);
+                    onEndpointFound.accept(ep);
+                    return ep;
+                });
+            }
+        } catch (Exception e) {
+            logError("processRequest error: " + e.getMessage());
+        }
+    }
+
+    private void processResponse(HttpResponseReceived response) {
+        try {
+            HttpRequest request = response.initiatingRequest();
+            if (request == null) return;
+
+            String host = request.httpService().host();
+            String url = request.url();
+
+            String body = response.bodyToString();
+            if (body == null || body.isBlank()) return;
+
+            if (GraphQLDetector.isGraphQLResponseBody(body)) {
+                HttpRequestResponse reqResp = HttpRequestResponse.httpRequestResponse(request, response);
+
+                if (GraphQLDetector.isIntrospectionResponse(body)) {
+                    String key = host + "|" + url;
+                    GraphQLEndpoint ep = discovered.computeIfAbsent(key, k -> {
+                        GraphQLEndpoint e = new GraphQLEndpoint(host, url, "response-body", reqResp);
+                        onEndpointFound.accept(e);
+                        return e;
+                    });
+
+                    ep.introspectionEnabled = true;
+                    GraphQLSchemaParser.ParsedSchema schema = GraphQLSchemaParser.parse(body);
+                    if (!schema.types.isEmpty()) {
+                        ep.schemaLoaded = true;
+                        onSchemaReady.accept(ep, schema);
+                    }
+                    return;
+                }
+
+                String key = host + "|" + url;
+                discovered.computeIfAbsent(key, k -> {
+                    GraphQLEndpoint ep = new GraphQLEndpoint(host, url, "response-body", reqResp);
+                    onEndpointFound.accept(ep);
+                    return ep;
+                });
+            }
+        } catch (Exception e) {
+            logError("processResponse error: " + e.getMessage());
+        }
     }
 
     /**
@@ -131,38 +141,29 @@ public class GraphQLExtractor implements IHttpListener {
                     "subscriptionType{name}types{kind name description fields{name description " +
                     "type{kind name ofType{kind name ofType{kind name ofType{kind name}}}}}}}}\"}";
 
-                byte[] body = introspectionQuery.getBytes("UTF-8");
-
                 // buduj żądanie HTTP
-                String host = endpoint.host;
                 java.net.URL url = new java.net.URL(endpoint.url);
                 int port = url.getPort();
                 boolean useHttps = url.getProtocol().equalsIgnoreCase("https");
                 if (port == -1) port = useHttps ? 443 : 80;
 
-                IHttpService service = BurpExtender.helpers.buildHttpService(
-                    host, port, useHttps);
+                burp.api.montoya.http.HttpService service = burp.api.montoya.http.HttpService.httpService(
+                    endpoint.host, port, useHttps);
 
-                byte[] request = BurpExtender.helpers.buildHttpMessage(
-                    java.util.List.of(
-                        "POST " + url.getPath() + " HTTP/1.1",
-                        "Host: " + host,
-                        "Content-Type: application/json",
-                        "Content-Length: " + body.length,
-                        "Accept: application/json",
-                        "User-Agent: Mozilla/5.0"
-                    ),
-                    body
-                );
+                HttpRequest request = HttpRequest.httpRequest()
+                    .withService(service)
+                    .withMethod("POST")
+                    .withPath(url.getPath())
+                    .withHeader("Host", endpoint.host)
+                    .withHeader("Content-Type", "application/json")
+                    .withHeader("Accept", "application/json")
+                    .withHeader("User-Agent", "Mozilla/5.0")
+                    .withBody(introspectionQuery);
 
-                IHttpRequestResponse responseInfo = BurpExtender.callbacks.makeHttpRequest(service, request);
-                if (responseInfo == null) return;
-                byte[] response = responseInfo.getResponse();
+                HttpRequestResponse responseInfo = ReconMasterPro.api.http().sendRequest(request);
+                if (responseInfo == null || responseInfo.response() == null) return;
 
-                IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(response);
-                int bodyOffset = respInfo.getBodyOffset();
-                String responseBody = new String(response, bodyOffset,
-                    response.length - bodyOffset, "UTF-8");
+                String responseBody = responseInfo.response().bodyToString();
 
                 if (GraphQLDetector.isIntrospectionResponse(responseBody)) {
                     endpoint.introspectionEnabled = true;
@@ -179,13 +180,26 @@ public class GraphQLExtractor implements IHttpListener {
                 }
 
             } catch (Exception e) {
-                try {
-                    BurpExtender.callbacks.printError(
-                        "GraphQL introspection failed for " + endpoint.url + ": " + e.getMessage());
-                } catch (Exception ignored) {}
+                logError("GraphQL introspection failed for " + endpoint.url + ": " + e.getMessage());
             }
         });
     }
 
+    private String getContentType(List<String> headers) {
+        return headers.stream()
+            .filter(h -> h.toLowerCase().startsWith("content-type:"))
+            .findFirst()
+            .orElse("")
+            .toLowerCase();
+    }
+
     public void shutdown() { executor.shutdownNow(); }
+
+    private void logError(String msg) {
+        if (ReconMasterPro.api != null) {
+            ReconMasterPro.api.logging().logToError("GraphQL error: " + msg);
+        } else {
+            System.err.println("GraphQL error: " + msg);
+        }
+    }
 }

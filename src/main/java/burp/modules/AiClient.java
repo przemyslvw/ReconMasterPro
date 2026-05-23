@@ -1,6 +1,5 @@
 package burp.modules;
 
-import burp.BurpExtender;
 import burp.utils.SettingsManager;
 import burp.utils.AiProvider;
 import com.google.gson.Gson;
@@ -247,10 +246,6 @@ public class AiClient {
     }
 
     private void logError(String message, Throwable t) {
-        if (BurpExtender.callbacks != null) {
-            BurpExtender.callbacks.printError("[AiClient Error] " + message + (t != null ? ": " + t.getMessage() : ""));
-        } else {
-            System.err.println("[AiClient Error] " + message + (t != null ? ": " + t.getMessage() : ""));
-        }
+        System.err.println("[AiClient Error] " + message + (t != null ? ": " + t.getMessage() : ""));
     }
 }

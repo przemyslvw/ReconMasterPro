@@ -2,6 +2,9 @@ package burp;
 
 import burp.utils.SettingsManager;
 import burp.utils.AiProvider;
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.persistence.Persistence;
+import burp.api.montoya.persistence.Preferences;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -14,31 +17,50 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SettingsManagerTest {
 
     private Map<String, String> store;
-    private IBurpExtenderCallbacks fake;
+    private MontoyaApi fakeApi;
     private SettingsManager settings;
 
     @BeforeEach
     void setUp() {
         store = new HashMap<>();
-        fake = (IBurpExtenderCallbacks) Proxy.newProxyInstance(
-            IBurpExtenderCallbacks.class.getClassLoader(),
-            new Class<?>[]{IBurpExtenderCallbacks.class},
+        
+        Preferences fakePreferences = (Preferences) Proxy.newProxyInstance(
+            Preferences.class.getClassLoader(),
+            new Class<?>[]{Preferences.class},
             (proxy, method, args) -> {
-                if ("saveExtensionSetting".equals(method.getName())) {
+                if ("setString".equals(method.getName())) {
                     store.put((String) args[0], (String) args[1]);
                     return null;
-                } else if ("loadExtensionSetting".equals(method.getName())) {
+                } else if ("getString".equals(method.getName())) {
                     return store.get((String) args[0]);
                 }
-                Class<?> returnType = method.getReturnType();
-                if (returnType == void.class) return null;
-                if (returnType == boolean.class) return false;
-                if (returnType == int.class) return 0;
-                if (returnType == double.class) return 0.0;
                 return null;
             }
         );
-        settings = new SettingsManager(fake);
+
+        Persistence fakePersistence = (Persistence) Proxy.newProxyInstance(
+            Persistence.class.getClassLoader(),
+            new Class<?>[]{Persistence.class},
+            (proxy, method, args) -> {
+                if ("preferences".equals(method.getName())) {
+                    return fakePreferences;
+                }
+                return null;
+            }
+        );
+
+        fakeApi = (MontoyaApi) Proxy.newProxyInstance(
+            MontoyaApi.class.getClassLoader(),
+            new Class<?>[]{MontoyaApi.class},
+            (proxy, method, args) -> {
+                if ("persistence".equals(method.getName())) {
+                    return fakePersistence;
+                }
+                return null;
+            }
+        );
+
+        settings = new SettingsManager(fakeApi);
     }
 
     // ── Entropy ──────────────────────────────────────────────────────────
@@ -139,8 +161,8 @@ public class SettingsManagerTest {
     @Test
     void settingsPersistedInStore() {
         settings.setEntropyThreshold(5.0);
-        // New instance with the same fake callbacks (which uses the same store)
-        SettingsManager settings2 = new SettingsManager(fake);
+        // New instance with the same fake API (which uses the same store)
+        SettingsManager settings2 = new SettingsManager(fakeApi);
         assertEquals(5.0, settings2.getEntropyThreshold(), 0.001);
     }
 

@@ -1,6 +1,6 @@
 package burp.models;
 
-import burp.IHttpRequestResponse;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,7 @@ public class Technology {
     public String host;
     public List<CveEntry> cves = new ArrayList<>();
     public Instant discoveredAt;
-    public transient IHttpRequestResponse originalRequestResponse;
+    public transient HttpRequestResponse originalRequestResponse;
 
     public Technology(String name, String category, String host) {
         this.name = name;
@@ -23,7 +23,7 @@ public class Technology {
         this.discoveredAt = Instant.now();
     }
 
-    public Technology(String name, String category, String host, IHttpRequestResponse originalRequestResponse) {
+    public Technology(String name, String category, String host, HttpRequestResponse originalRequestResponse) {
         this(name, category, host);
         this.originalRequestResponse = originalRequestResponse;
     }

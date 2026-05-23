@@ -4,6 +4,9 @@ import burp.models.*;
 import burp.modules.AiAnalyzer;
 import burp.utils.SettingsManager;
 import burp.utils.AiProvider;
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.persistence.Persistence;
+import burp.api.montoya.persistence.Preferences;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AiAnalyzerTest {
 
     private Map<String, String> configStore;
-    private IBurpExtenderCallbacks fakeCallbacks;
+    private MontoyaApi fakeApi;
     private SettingsManager settings;
 
     // Suppliers lists
@@ -31,20 +34,44 @@ public class AiAnalyzerTest {
     @BeforeEach
     void setUp() {
         configStore = new HashMap<>();
-        fakeCallbacks = (IBurpExtenderCallbacks) Proxy.newProxyInstance(
-            IBurpExtenderCallbacks.class.getClassLoader(),
-            new Class<?>[]{IBurpExtenderCallbacks.class},
+        
+        Preferences fakePreferences = (Preferences) Proxy.newProxyInstance(
+            Preferences.class.getClassLoader(),
+            new Class<?>[]{Preferences.class},
             (proxy, method, args) -> {
-                if ("saveExtensionSetting".equals(method.getName())) {
+                if ("setString".equals(method.getName())) {
                     configStore.put((String) args[0], (String) args[1]);
                     return null;
-                } else if ("loadExtensionSetting".equals(method.getName())) {
+                } else if ("getString".equals(method.getName())) {
                     return configStore.get((String) args[0]);
                 }
                 return null;
             }
         );
-        settings = new SettingsManager(fakeCallbacks);
+
+        Persistence fakePersistence = (Persistence) Proxy.newProxyInstance(
+            Persistence.class.getClassLoader(),
+            new Class<?>[]{Persistence.class},
+            (proxy, method, args) -> {
+                if ("preferences".equals(method.getName())) {
+                    return fakePreferences;
+                }
+                return null;
+            }
+        );
+
+        fakeApi = (MontoyaApi) Proxy.newProxyInstance(
+            MontoyaApi.class.getClassLoader(),
+            new Class<?>[]{MontoyaApi.class},
+            (proxy, method, args) -> {
+                if ("persistence".equals(method.getName())) {
+                    return fakePersistence;
+                }
+                return null;
+            }
+        );
+
+        settings = new SettingsManager(fakeApi);
 
         endpoints = new ArrayList<>();
         technologies = new ArrayList<>();
@@ -172,11 +199,11 @@ public class AiAnalyzerTest {
         // Let's call with only endpoints and tech excluded
         String reportExcluding = analyzer.buildUserPrompt(false, false, true, true, true, true);
         assertFalse(reportExcluding.contains("Detected Technologies"));
-        assertFalse(reportExcluding.contains("Endpoints"));
+        assertFalse(reportExcluding.contains("## 🔗 Endpoints"));
 
         // Let's call with endpoints included and tech excluded
         String reportOnlyEndpoints = analyzer.buildUserPrompt(true, false, false, false, false, false);
-        assertTrue(reportOnlyEndpoints.contains("Endpoints"));
+        assertTrue(reportOnlyEndpoints.contains("## 🔗 Endpoints"));
         assertFalse(reportOnlyEndpoints.contains("Detected Technologies"));
         assertFalse(reportOnlyEndpoints.contains("Secrets"));
     }

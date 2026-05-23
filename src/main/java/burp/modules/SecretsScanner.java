@@ -1,9 +1,13 @@
 package burp.modules;
 
-import burp.*;
+import burp.ReconMasterPro;
 import burp.models.Secret;
 import burp.models.SecretPattern;
 import burp.utils.EntropyCalculator;
+import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.requests.HttpRequest;
+import burp.api.montoya.core.ToolType;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -11,7 +15,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class SecretsScanner implements IHttpListener {
+public class SecretsScanner implements HttpHandler {
 
     // ── Wzorce regex — kolejność: od najpoważniejszych ────────────────
     private static final List<SecretPattern> PATTERNS = List.of(
@@ -135,52 +139,50 @@ public class SecretsScanner implements IHttpListener {
     }
 
     @Override
-    public void processHttpMessage(int toolFlag, boolean messageIsRequest,
-                                   IHttpRequestResponse messageInfo) {
-        if (messageIsRequest) return;
+    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
+        return RequestToBeSentAction.continueWith(requestToBeSent);
+    }
 
-        executor.submit(() -> {
-            try {
-                IHttpService service = messageInfo.getHttpService();
-                String host = service.getHost();
-
-                byte[] response = messageInfo.getResponse();
-                if (response == null) return;
-
-                IResponseInfo respInfo = BurpExtender.helpers.analyzeResponse(response);
-
-                // skanuj tylko tekstowe odpowiedzi
-                String contentType = respInfo.getHeaders().stream()
-                    .filter(h -> h.toLowerCase().startsWith("content-type:"))
-                    .findFirst().orElse("").toLowerCase();
-                if (!isTextualContent(contentType)) return;
-
-                int bodyOffset = respInfo.getBodyOffset();
-                String body = new String(response, bodyOffset,
-                    response.length - bodyOffset, "UTF-8");
-
-                String url = BurpExtender.helpers.analyzeRequest(messageInfo)
-                    .getUrl().toString();
-
-                List<Secret> found = scan(host, url, body, messageInfo);
-                found.forEach(s -> {
-                    String key = s.host + "|" + s.type + "|" + s.value;
-                    if (seen.add(key)) onSecretFound.accept(s);
-                });
-
-            } catch (Exception e) {
+    @Override
+    public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
+        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+            executor.submit(() -> {
                 try {
-                    BurpExtender.callbacks.printError("SecretsScanner: " + e.getMessage());
-                } catch (Exception ignored) {}
-            }
-        });
+                    HttpRequest request = responseReceived.initiatingRequest();
+                    if (request == null) return;
+
+                    String host = request.httpService().host();
+                    String url = request.url();
+
+                    String body = responseReceived.bodyToString();
+                    if (body == null || body.isBlank()) return;
+
+                    List<String> headers = responseReceived.headers().stream().map(h -> h.toString()).toList();
+                    String contentType = getContentType(headers);
+                    if (!isTextualContent(contentType)) return;
+
+                    HttpRequestResponse reqResp = HttpRequestResponse.httpRequestResponse(request, responseReceived);
+                    List<Secret> found = scan(host, url, body, reqResp);
+                    found.forEach(s -> {
+                        String key = s.host + "|" + s.type + "|" + s.value;
+                        if (seen.add(key)) onSecretFound.accept(s);
+                    });
+
+                } catch (Exception e) {
+                    if (ReconMasterPro.api != null) {
+                        ReconMasterPro.api.logging().logToError("SecretsScanner error: " + e.getMessage());
+                    }
+                }
+            });
+        }
+        return ResponseReceivedAction.continueWith(responseReceived);
     }
 
     public List<Secret> scan(String host, String url, String body) {
         return scan(host, url, body, null);
     }
 
-    public List<Secret> scan(String host, String url, String body, IHttpRequestResponse originalRequestResponse) {
+    public List<Secret> scan(String host, String url, String body, HttpRequestResponse originalRequestResponse) {
         List<Secret> results = new ArrayList<>();
 
         // 1. Regex patterns
@@ -284,6 +286,14 @@ public class SecretsScanner implements IHttpListener {
                contentType.contains("json") ||
                contentType.contains("xml") ||
                contentType.isEmpty(); // nieznany — skanuj dla bezpieczeństwa
+    }
+
+    private String getContentType(List<String> headers) {
+        return headers.stream()
+            .filter(h -> h.toLowerCase().startsWith("content-type:"))
+            .findFirst()
+            .orElse("")
+            .toLowerCase();
     }
 
     public void shutdown() { executor.shutdownNow(); }

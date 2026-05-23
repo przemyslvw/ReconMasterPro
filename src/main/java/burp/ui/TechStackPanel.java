@@ -1,5 +1,6 @@
 package burp.ui;
 
+import burp.api.montoya.MontoyaApi;
 import burp.models.CveEntry;
 import burp.models.Technology;
 
@@ -18,7 +19,7 @@ public class TechStackPanel extends JPanel {
     private final List<Technology> technologies = new ArrayList<>();
     private final JTextArea cveDetail;
 
-    public TechStackPanel() {
+    public TechStackPanel(MontoyaApi api) {
         super(new BorderLayout());
 
         model = new DefaultTableModel(COLUMNS, 0) {
@@ -27,7 +28,6 @@ public class TechStackPanel extends JPanel {
 
         JTable table = new JTable(model);
         table.setAutoCreateRowSorter(true);
-        // domyślnie sortuj po Severity (col 0) malejąco
         ((TableRowSorter<?>) table.getRowSorter()).toggleSortOrder(0);
 
         // szerokości kolumn
@@ -54,9 +54,9 @@ public class TechStackPanel extends JPanel {
                 synchronized (technologies) {
                     if (row >= 0 && row < technologies.size()) {
                         Technology tech = technologies.get(row);
-                        if (tech.originalRequestResponse != null && tech.originalRequestResponse.getHttpService() != null) {
+                        if (tech.originalRequestResponse != null && tech.originalRequestResponse.request() != null) {
                             try {
-                                return burp.BurpExtender.helpers.analyzeRequest(tech.originalRequestResponse).getUrl().toString();
+                                return tech.originalRequestResponse.request().url();
                             } catch (Exception ignored) {}
                         }
                         String proto = "https";
@@ -141,7 +141,7 @@ public class TechStackPanel extends JPanel {
     private static class SeverityCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean selected, boolean focus, int row, int column) {
+                 boolean selected, boolean focus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, selected, focus, row, column);
             if (!selected) {
                 String sev = (String) table.getValueAt(row, 0);

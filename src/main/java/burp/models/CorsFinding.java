@@ -1,6 +1,6 @@
 package burp.models;
 
-import burp.IHttpRequestResponse;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import java.time.Instant;
 
 public class CorsFinding {
@@ -25,7 +25,7 @@ public class CorsFinding {
     public String pocHtml;
     public Instant detectedAt;
     public boolean activeProbe;
-    public transient IHttpRequestResponse originalRequestResponse;
+    public transient HttpRequestResponse originalRequestResponse;
 
     public CorsFinding(IssueType type, String host, String url, String method) {
         this.type = type;
@@ -37,7 +37,7 @@ public class CorsFinding {
         this.activeProbe = false;
     }
 
-    public CorsFinding(IssueType type, String host, String url, String method, IHttpRequestResponse originalRequestResponse) {
+    public CorsFinding(IssueType type, String host, String url, String method, HttpRequestResponse originalRequestResponse) {
         this(type, host, url, method);
         this.originalRequestResponse = originalRequestResponse;
     }

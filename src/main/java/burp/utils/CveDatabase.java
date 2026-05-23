@@ -1,6 +1,5 @@
 package burp.utils;
 
-import burp.BurpExtender;
 import burp.models.CveEntry;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -38,11 +37,6 @@ public class CveDatabase {
     }
 
     private void log(String msg) {
-        try {
-            BurpExtender.callbacks.printOutput("[CVE-DB] " + msg);
-        } catch (Exception ignored) {
-            // w testach jednostkowych BurpExtender.callbacks = null
-            System.out.println("[CVE-DB] " + msg);
-        }
+        System.out.println("[CVE-DB] " + msg);
     }
 }

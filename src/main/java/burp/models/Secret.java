@@ -1,6 +1,6 @@
 package burp.models;
 
-import burp.IHttpRequestResponse;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import java.time.Instant;
 
 public class Secret {
@@ -14,7 +14,7 @@ public class Secret {
     public String url;
     public String detectedBy;    // "regex" | "entropy"
     public Instant discoveredAt;
-    public transient IHttpRequestResponse originalRequestResponse;
+    public transient HttpRequestResponse originalRequestResponse;
 
     public Secret(String type, String severity, String fullValue,
                   String context, String host, String url, String detectedBy) {
@@ -31,7 +31,7 @@ public class Secret {
 
     public Secret(String type, String severity, String fullValue,
                   String context, String host, String url, String detectedBy,
-                  IHttpRequestResponse originalRequestResponse) {
+                  HttpRequestResponse originalRequestResponse) {
         this(type, severity, fullValue, context, host, url, detectedBy);
         this.originalRequestResponse = originalRequestResponse;
     }

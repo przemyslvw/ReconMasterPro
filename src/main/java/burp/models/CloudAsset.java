@@ -1,6 +1,6 @@
 package burp.models;
 
-import burp.IHttpRequestResponse;
+import burp.api.montoya.http.message.HttpRequestResponse;
 import java.time.Instant;
 
 public class CloudAsset {
@@ -12,7 +12,7 @@ public class CloudAsset {
     public String accessStatus;      // "UNKNOWN" | "PUBLIC" | "PRIVATE" | "NOT_FOUND" | "ERROR"
     public int    accessStatusCode;  // HTTP kod odpowiedzi z weryfikacji (0 = nie sprawdzano)
     public Instant discoveredAt;
-    public transient IHttpRequestResponse originalRequestResponse;
+    public transient HttpRequestResponse originalRequestResponse;
 
     public CloudAsset(CloudProvider provider, String bucketOrAccount,
                       String url, String sourceUrl, String sourceType) {
@@ -28,7 +28,7 @@ public class CloudAsset {
 
     public CloudAsset(CloudProvider provider, String bucketOrAccount,
                       String url, String sourceUrl, String sourceType,
-                      IHttpRequestResponse originalRequestResponse) {
+                      HttpRequestResponse originalRequestResponse) {
         this(provider, bucketOrAccount, url, sourceUrl, sourceType);
         this.originalRequestResponse = originalRequestResponse;
     }
