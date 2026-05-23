@@ -228,7 +228,22 @@ public class AiAssistantPanel extends JPanel {
                     "</body></html>";
         }
 
-        JEditorPane warningText = new JEditorPane("text/html", warningHtml);
+        JEditorPane warningText = new JEditorPane("text/html", warningHtml) {
+            @Override
+            public boolean getScrollableTracksViewportWidth() {
+                return true; // force wrap to parent width — no horizontal overflow
+            }
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension d = super.getPreferredSize();
+                // clamp width to parent container so text wraps properly
+                Container parent = getParent();
+                if (parent != null) {
+                    d.width = parent.getWidth() - 20;
+                }
+                return d;
+            }
+        };
         warningText.setEditable(false);
         warningText.setOpaque(false);
         warningText.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);

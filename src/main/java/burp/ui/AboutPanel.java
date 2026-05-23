@@ -2,9 +2,8 @@ package burp.ui;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.HyperlinkEvent;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URI;
 
@@ -66,7 +65,7 @@ public class AboutPanel extends JPanel {
         card.add(Box.createVerticalStrut(6));
         card.add(buildLinkRow("🔒", "baluarte.pl",    "https://baluarte.pl"));
         card.add(Box.createVerticalStrut(6));
-        card.add(buildLinkRow("🐙", "GitHub — przemyslvw", "https://github.com/przemyslvw"));
+        card.add(buildLinkRow("🐙", "github.com/przemyslvw", "https://github.com/przemyslvw"));
         card.add(Box.createVerticalStrut(20));
 
         // Divider
@@ -120,39 +119,20 @@ public class AboutPanel extends JPanel {
         return lbl;
     }
 
-    private JPanel buildAuthorBlock() {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        row.setOpaque(false);
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel nameLabel = new JLabel("Przemysław Majdak");
-        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-        JLabel sep = new JLabel("  ·  ");
-        sep.setForeground(Color.GRAY);
-
-        JLabel emailLabel = makeLink("majdak.przemyslaw@gmail.com", "mailto:majdak.przemyslaw@gmail.com");
-
-        row.add(nameLabel);
-        row.add(sep);
-        row.add(emailLabel);
-        return row;
+    private JEditorPane buildAuthorBlock() {
+        String html = "<html><body style='font-family:sans-serif;font-size:12px;margin:0;padding:0;'>" +
+                "<b>Przemysław Majdak</b>" +
+                "<span style='color:gray;'>  &middot;  </span>" +
+                "<a href='mailto:majdak.przemyslaw@gmail.com'>majdak.przemyslaw@gmail.com</a>" +
+                "</body></html>";
+        return makeHtmlPane(html);
     }
 
-    private JPanel buildLinkRow(String icon, String label, String url) {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        row.setOpaque(false);
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel iconLbl = new JLabel(icon);
-        iconLbl.setFont(new Font("SansSerif", Font.PLAIN, 14));
-
-        JLabel link = makeLink(label, url);
-        link.setFont(new Font("SansSerif", Font.PLAIN, 13));
-
-        row.add(iconLbl);
-        row.add(link);
-        return row;
+    private JEditorPane buildLinkRow(String icon, String label, String url) {
+        String html = "<html><body style='font-family:sans-serif;font-size:13px;margin:0;padding:0;'>" +
+                icon + "&nbsp;&nbsp;<a href='" + url + "'>" + label + "</a>" +
+                "</body></html>";
+        return makeHtmlPane(html);
     }
 
     private JPanel buildInfoLine(String key, String value) {
@@ -171,29 +151,25 @@ public class AboutPanel extends JPanel {
         return row;
     }
 
-    /** Clickable hyperlink label that opens a URL in the default browser. */
-    private JLabel makeLink(String text, String url) {
-        JLabel lbl = new JLabel("<html><a href=''>" + text + "</a></html>");
-        lbl.setForeground(LINK_COLOR);
-        lbl.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        lbl.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        lbl.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                openUrl(url);
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                lbl.setForeground(ACCENT);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                lbl.setForeground(LINK_COLOR);
+    /**
+     * Creates a non-editable JEditorPane that reliably renders HTML and opens
+     * hyperlinks in the system browser via HyperlinkListener.
+     * JLabel HTML rendering can be suppressed by Burp Suite's custom LAF;
+     * JEditorPane always renders HTML correctly.
+     */
+    private JEditorPane makeHtmlPane(String html) {
+        JEditorPane pane = new JEditorPane("text/html", html);
+        pane.setEditable(false);
+        pane.setOpaque(false);
+        pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        pane.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        pane.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pane.addHyperlinkListener(e -> {
+            if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                openUrl(e.getURL() != null ? e.getURL().toString() : e.getDescription());
             }
         });
-        return lbl;
+        return pane;
     }
 
     private static void openUrl(String url) {
