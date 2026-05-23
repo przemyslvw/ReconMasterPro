@@ -12,7 +12,9 @@ import burp.ui.SecretsPanel;
 import burp.ui.TechStackPanel;
 import burp.ui.TimelinePanel;
 import burp.ui.GraphQLPanel;
+import burp.ui.CloudAssetsPanel;
 import burp.modules.GraphQLExtractor;
+import burp.modules.CloudAssetsAggregator;
 import burp.utils.CveDatabase;
 import burp.utils.DatabaseManager;
 
@@ -26,6 +28,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
     private DatabaseManager db;
     private CorsHunter corsHunter;
     private GraphQLExtractor graphqlExtractor;
+    private CloudAssetsAggregator cloudAggregator;
 
     @Override
     public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks) {
@@ -98,8 +101,14 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             });
             callbacks.registerHttpListener(secretsScanner);
 
+            // --- Etap 8: Cloud Assets Aggregator ---
+            CloudAssetsPanel cloudAssetsPanel = new CloudAssetsPanel();
+            cloudAggregator = new CloudAssetsAggregator(cloudAssetsPanel::addAsset);
+            cloudAssetsPanel.setAggregator(cloudAggregator);
+            callbacks.registerHttpListener(cloudAggregator);
+
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel, cloudAssetsPanel);
             callbacks.addSuiteTab(tab);
         });
 
@@ -112,5 +121,6 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
         if (db != null) db.close();
         if (corsHunter != null) corsHunter.shutdown();
         if (graphqlExtractor != null) graphqlExtractor.shutdown();
+        if (cloudAggregator != null) cloudAggregator.shutdown();
     }
 }
