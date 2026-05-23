@@ -28,6 +28,12 @@ public class DatabaseManager {
     }
 
     public void initialize() throws SQLException {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("SQLite JDBC Driver not found in classpath. Make sure you are using the fat JAR.", e);
+        }
+
         String url = dbPath.equals(":memory:")
             ? "jdbc:sqlite::memory:"
             : "jdbc:sqlite:" + dbPath;
