@@ -1,7 +1,12 @@
 package burp.ui;
 
+import burp.BurpExtender;
 import burp.models.CorsFinding;
 import burp.modules.CorsHunter;
+import burp.IMessageEditor;
+import burp.IMessageEditorController;
+import burp.IHttpRequestResponse;
+import burp.IHttpService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -11,7 +16,7 @@ import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CorsPanel extends JPanel {
+public class CorsPanel extends JPanel implements IMessageEditorController {
 
     private static final String[] COLUMNS =
         {"Severity", "Type", "Method", "Host", "URL"};
@@ -20,6 +25,9 @@ public class CorsPanel extends JPanel {
     private final List<CorsFinding> findings = new ArrayList<>();
     private final JTextArea detailArea;
     private final JLabel statusLabel;
+    private IHttpRequestResponse currentlySelectedMessage;
+    private IMessageEditor requestEditor;
+    private IMessageEditor responseEditor;
 
     private CorsHunter hunter;
 
@@ -39,17 +47,60 @@ public class CorsPanel extends JPanel {
         table.getColumnModel().getColumn(4).setPreferredWidth(420);
         table.setDefaultRenderer(Object.class, new SeverityRowRenderer());
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> {
+                synchronized (findings) {
+                    if (row >= 0 && row < findings.size()) {
+                        return findings.get(row).originalRequestResponse;
+                    }
+                }
+                return null;
+            },
+            row -> {
+                synchronized (findings) {
+                    if (row >= 0 && row < findings.size()) {
+                        return findings.get(row).url;
+                    }
+                }
+                return null;
+            }
+        );
+
         detailArea = new JTextArea();
         detailArea.setEditable(false);
         detailArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         detailArea.setText("Select a finding to view details and PoC HTML.");
 
+        // Native Burp Message Editors
+        requestEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+        responseEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+
+        JTabbedPane detailTabs = new JTabbedPane();
+        detailTabs.addTab("Details & PoC", new JScrollPane(detailArea));
+        detailTabs.addTab("Request", requestEditor.getComponent());
+        detailTabs.addTab("Response", responseEditor.getComponent());
+
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
             int viewRow = table.getSelectedRow();
-            if (viewRow < 0) return;
+            if (viewRow < 0) {
+                currentlySelectedMessage = null;
+                detailArea.setText("Select a finding to view details and PoC HTML.");
+                requestEditor.setMessage(new byte[0], true);
+                responseEditor.setMessage(new byte[0], false);
+                return;
+            }
             int modelRow = table.convertRowIndexToModel(viewRow);
-            showDetail(findings.get(modelRow));
+            CorsFinding f = findings.get(modelRow);
+            showDetail(f);
+            currentlySelectedMessage = f.originalRequestResponse;
+            if (currentlySelectedMessage != null) {
+                requestEditor.setMessage(currentlySelectedMessage.getRequest(), true);
+                responseEditor.setMessage(currentlySelectedMessage.getResponse(), false);
+            } else {
+                requestEditor.setMessage(new byte[0], true);
+                responseEditor.setMessage(new byte[0], false);
+            }
         });
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -105,6 +156,8 @@ public class CorsPanel extends JPanel {
             tableModel.setRowCount(0);
             detailArea.setText("Select a finding to view details and PoC HTML.");
             statusLabel.setText("Findings: 0");
+            requestEditor.setMessage(new byte[0], true);
+            responseEditor.setMessage(new byte[0], false);
         });
 
         toolbar.add(new JLabel("URL:"));
@@ -122,9 +175,9 @@ public class CorsPanel extends JPanel {
         JSplitPane split = new JSplitPane(
             JSplitPane.VERTICAL_SPLIT,
             new JScrollPane(table),
-            new JScrollPane(detailArea)
+            detailTabs
         );
-        split.setResizeWeight(0.5);
+        split.setResizeWeight(0.55);
 
         add(toolbar, BorderLayout.NORTH);
         add(split, BorderLayout.CENTER);
@@ -211,5 +264,20 @@ public class CorsPanel extends JPanel {
             }
             return c;
         }
+    }
+
+    @Override
+    public IHttpService getHttpService() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getHttpService() : null;
+    }
+
+    @Override
+    public byte[] getRequest() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getRequest() : null;
+    }
+
+    @Override
+    public byte[] getResponse() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getResponse() : null;
     }
 }

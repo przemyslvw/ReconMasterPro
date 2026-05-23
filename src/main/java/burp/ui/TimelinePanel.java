@@ -44,6 +44,29 @@ public class TimelinePanel extends JPanel {
 
         table.setDefaultRenderer(Object.class, new SeverityCellRenderer());
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> null, // Timeline events don't store originalRequestResponse directly
+            row -> {
+                synchronized (events) {
+                    if (row >= 0 && row < events.size()) {
+                        TimelineEvent event = events.get(row);
+                        String msg = event.message;
+                        if (msg != null) {
+                            int httpIdx = msg.indexOf("http://");
+                            if (httpIdx == -1) httpIdx = msg.indexOf("https://");
+                            if (httpIdx != -1) {
+                                int endIdx = msg.indexOf(' ', httpIdx);
+                                if (endIdx == -1) endIdx = msg.length();
+                                return msg.substring(httpIdx, endIdx);
+                            }
+                        }
+                        return "https://" + event.host + "/";
+                    }
+                }
+                return null;
+            }
+        );
+
         // toolbar
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         badgeLabel = new JLabel("Events: 0");

@@ -41,6 +41,32 @@ public class TechStackPanel extends JPanel {
 
         table.setDefaultRenderer(Object.class, new SeverityCellRenderer());
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> {
+                synchronized (technologies) {
+                    if (row >= 0 && row < technologies.size()) {
+                        return technologies.get(row).originalRequestResponse;
+                    }
+                }
+                return null;
+            },
+            row -> {
+                synchronized (technologies) {
+                    if (row >= 0 && row < technologies.size()) {
+                        Technology tech = technologies.get(row);
+                        if (tech.originalRequestResponse != null && tech.originalRequestResponse.getHttpService() != null) {
+                            try {
+                                return burp.BurpExtender.helpers.analyzeRequest(tech.originalRequestResponse).getUrl().toString();
+                            } catch (Exception ignored) {}
+                        }
+                        String proto = "https";
+                        return proto + "://" + tech.host + "/";
+                    }
+                }
+                return null;
+            }
+        );
+
         // panel szczegółów CVE — pojawia się po kliknięciu wiersza
         cveDetail = new JTextArea(5, 40);
         cveDetail.setEditable(false);

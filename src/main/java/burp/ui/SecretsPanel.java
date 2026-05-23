@@ -1,6 +1,11 @@
 package burp.ui;
 
+import burp.BurpExtender;
 import burp.models.Secret;
+import burp.IMessageEditor;
+import burp.IMessageEditorController;
+import burp.IHttpRequestResponse;
+import burp.IHttpService;
 
 import javax.swing.*;
 import javax.swing.table.*;
@@ -8,7 +13,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SecretsPanel extends JPanel {
+public class SecretsPanel extends JPanel implements IMessageEditorController {
 
     private static final String[] COLUMNS =
         {"Severity", "Type", "Value", "Entropy", "Detected By", "Host", "URL"};
@@ -16,6 +21,9 @@ public class SecretsPanel extends JPanel {
     private final DefaultTableModel model;
     private final List<Secret> secrets = new ArrayList<>();
     private final JTextArea contextArea;
+    private IHttpRequestResponse currentlySelectedMessage;
+    private IMessageEditor requestEditor;
+    private IMessageEditor responseEditor;
 
     public SecretsPanel() {
         super(new BorderLayout());
@@ -38,6 +46,25 @@ public class SecretsPanel extends JPanel {
 
         table.setDefaultRenderer(Object.class, new SeverityCellRenderer());
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> {
+                synchronized (secrets) {
+                    if (row >= 0 && row < secrets.size()) {
+                        return secrets.get(row).originalRequestResponse;
+                    }
+                }
+                return null;
+            },
+            row -> {
+                synchronized (secrets) {
+                    if (row >= 0 && row < secrets.size()) {
+                        return secrets.get(row).url;
+                    }
+                }
+                return null;
+            }
+        );
+
         // panel dolny — kontekst + pełna wartość po kliknięciu
         contextArea = new JTextArea(6, 60);
         contextArea.setEditable(false);
@@ -45,12 +72,36 @@ public class SecretsPanel extends JPanel {
         contextArea.setLineWrap(true);
         contextArea.setWrapStyleWord(false);
 
+        // Native Burp Message Editors
+        requestEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+        responseEditor = BurpExtender.callbacks.createMessageEditor(this, false);
+
+        JTabbedPane detailTabs = new JTabbedPane();
+        detailTabs.addTab("Details", new JScrollPane(contextArea));
+        detailTabs.addTab("Request", requestEditor.getComponent());
+        detailTabs.addTab("Response", responseEditor.getComponent());
+
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
             int viewRow = table.getSelectedRow();
-            if (viewRow < 0) return;
+            if (viewRow < 0) {
+                currentlySelectedMessage = null;
+                contextArea.setText("");
+                requestEditor.setMessage(new byte[0], true);
+                responseEditor.setMessage(new byte[0], false);
+                return;
+            }
             int modelRow = table.convertRowIndexToModel(viewRow);
-            showDetail(secrets.get(modelRow));
+            Secret s = secrets.get(modelRow);
+            showDetail(s);
+            currentlySelectedMessage = s.originalRequestResponse;
+            if (currentlySelectedMessage != null) {
+                requestEditor.setMessage(currentlySelectedMessage.getRequest(), true);
+                responseEditor.setMessage(currentlySelectedMessage.getResponse(), false);
+            } else {
+                requestEditor.setMessage(new byte[0], true);
+                responseEditor.setMessage(new byte[0], false);
+            }
         });
 
         // toolbar
@@ -81,7 +132,7 @@ public class SecretsPanel extends JPanel {
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
             new JScrollPane(table),
-            new JScrollPane(contextArea));
+            detailTabs);
         split.setResizeWeight(0.65);
 
         add(toolbar, BorderLayout.NORTH);
@@ -170,5 +221,20 @@ public class SecretsPanel extends JPanel {
             }
             return c;
         }
+    }
+
+    @Override
+    public IHttpService getHttpService() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getHttpService() : null;
+    }
+
+    @Override
+    public byte[] getRequest() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getRequest() : null;
+    }
+
+    @Override
+    public byte[] getResponse() {
+        return currentlySelectedMessage != null ? currentlySelectedMessage.getResponse() : null;
     }
 }

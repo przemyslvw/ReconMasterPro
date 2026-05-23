@@ -41,6 +41,25 @@ public class CloudAssetsPanel extends JPanel {
 
         table.setDefaultRenderer(Object.class, new AccessStatusRenderer());
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> {
+                synchronized (assets) {
+                    if (row >= 0 && row < assets.size()) {
+                        return assets.get(row).originalRequestResponse;
+                    }
+                }
+                return null;
+            },
+            row -> {
+                synchronized (assets) {
+                    if (row >= 0 && row < assets.size()) {
+                        return assets.get(row).url;
+                    }
+                }
+                return null;
+            }
+        );
+
         // panel dolny — szczegóły wybranego zasobu
         detailArea = new JTextArea(6, 60);
         detailArea.setEditable(false);

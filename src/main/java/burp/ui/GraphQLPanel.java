@@ -47,6 +47,25 @@ public class GraphQLPanel extends JPanel {
         table.getColumnModel().getColumn(3).setPreferredWidth(90);   // Introspection
         table.getColumnModel().getColumn(4).setPreferredWidth(70);   // Schema
 
+        burp.ui.utils.ContextMenuFactory.addContextMenu(table,
+            row -> {
+                synchronized (endpoints) {
+                    if (row >= 0 && row < endpoints.size()) {
+                        return endpoints.get(row).originalRequestResponse;
+                    }
+                }
+                return null;
+            },
+            row -> {
+                synchronized (endpoints) {
+                    if (row >= 0 && row < endpoints.size()) {
+                        return endpoints.get(row).url;
+                    }
+                }
+                return null;
+            }
+        );
+
         // ── Drzewo schematu ─────────────────────────────────────────
         treeRoot = new DefaultMutableTreeNode("Select an endpoint");
         treeModel = new DefaultTreeModel(treeRoot);
