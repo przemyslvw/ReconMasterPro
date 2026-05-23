@@ -9,9 +9,10 @@ public class ReconMasterTab implements ITab {
 
     private final JTabbedPane tabbedPane;
 
-    public ReconMasterTab(EndpointsPanel endpointsPanel) {
+    public ReconMasterTab(EndpointsPanel endpointsPanel, TechStackPanel techPanel) {
         tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Endpoints", endpointsPanel);
+        tabbedPane.addTab("Technologies", techPanel);
     }
 
     @Override

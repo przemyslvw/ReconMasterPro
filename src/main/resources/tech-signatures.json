@@ -1,1 +1,182 @@
-[]
+[
+  {
+    "name": "jQuery",
+    "category": "JavaScript Library",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "jquery[/\\-]([\\d]+\\.[\\d]+\\.[\\d]+)(\\.min)?\\.js",
+      "/ajax/libs/jquery/([\\d.]+)/jquery\\.min\\.js"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "Bootstrap",
+    "category": "CSS Framework",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "bootstrap[/\\-]([\\d]+\\.[\\d]+\\.[\\d]+)(\\.min)?\\.(js|css)",
+      "/ajax/libs/twitter-bootstrap/([\\d.]+)/"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "React",
+    "category": "JavaScript Framework",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "react[/\\-]([\\d]+\\.[\\d]+\\.[\\d]+)(\\.min)?\\.js",
+      "__REACT_DEVTOOLS_GLOBAL_HOOK__",
+      "data-reactroot"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "Vue.js",
+    "category": "JavaScript Framework",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "vue[/\\-]([\\d]+\\.[\\d]+\\.[\\d]+)(\\.min)?\\.js",
+      "__vue_app__",
+      "data-v-[0-9a-f]+"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "Angular",
+    "category": "JavaScript Framework",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "angular[/\\-]([\\d]+\\.[\\d]+\\.[\\d]+)(\\.min)?\\.js",
+      "ng-version=\"([\\d.]+)\"",
+      "ng-app"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "WordPress",
+    "category": "CMS",
+    "headerPatterns": [
+      "X-Powered-By: WordPress",
+      "X-WP-"
+    ],
+    "bodyPatterns": [
+      "<meta name=\"generator\" content=\"WordPress ([\\d.]+)\"",
+      "/wp-content/themes/",
+      "/wp-includes/js/",
+      "<!-- This site is optimized with the Yoast SEO"
+    ],
+    "cookiePatterns": [
+      "wordpress_logged_in",
+      "wp-settings-"
+    ]
+  },
+  {
+    "name": "Drupal",
+    "category": "CMS",
+    "headerPatterns": [
+      "X-Drupal-Cache",
+      "X-Generator: Drupal"
+    ],
+    "bodyPatterns": [
+      "<meta name=\"generator\" content=\"Drupal ([\\d.]+)\"",
+      "/sites/default/files/",
+      "Drupal.settings"
+    ],
+    "cookiePatterns": [
+      "Drupal.visitor",
+      "SESS[0-9a-f]{32}"
+    ]
+  },
+  {
+    "name": "Laravel",
+    "category": "PHP Framework",
+    "headerPatterns": [],
+    "bodyPatterns": [
+      "laravel_session",
+      "/vendor/laravel/"
+    ],
+    "cookiePatterns": [
+      "laravel_session",
+      "XSRF-TOKEN"
+    ]
+  },
+  {
+    "name": "Django",
+    "category": "Python Framework",
+    "headerPatterns": [
+      "X-Framework: Django"
+    ],
+    "bodyPatterns": [
+      "csrfmiddlewaretoken",
+      "__django_language"
+    ],
+    "cookiePatterns": [
+      "csrftoken",
+      "sessionid"
+    ]
+  },
+  {
+    "name": "Spring Boot",
+    "category": "Java Framework",
+    "headerPatterns": [
+      "X-Application-Context:",
+      "X-Powered-By: Spring"
+    ],
+    "bodyPatterns": [
+      "Whitelabel Error Page",
+      "org.springframework"
+    ],
+    "cookiePatterns": [
+      "JSESSIONID"
+    ]
+  },
+  {
+    "name": "Apache",
+    "category": "Web Server",
+    "headerPatterns": [
+      "Server: Apache/([\\d.]+)"
+    ],
+    "bodyPatterns": [
+      "<address>Apache/([\\d.]+)"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "Nginx",
+    "category": "Web Server",
+    "headerPatterns": [
+      "Server: nginx/([\\d.]+)",
+      "Server: nginx"
+    ],
+    "bodyPatterns": [
+      "<hr><center>nginx/([\\d.]+)</center>"
+    ],
+    "cookiePatterns": []
+  },
+  {
+    "name": "PHP",
+    "category": "Language",
+    "headerPatterns": [
+      "X-Powered-By: PHP/([\\d.]+)"
+    ],
+    "bodyPatterns": [],
+    "cookiePatterns": [
+      "PHPSESSID"
+    ]
+  },
+  {
+    "name": "ASP.NET",
+    "category": "Framework",
+    "headerPatterns": [
+      "X-Powered-By: ASP.NET",
+      "X-AspNet-Version: ([\\d.]+)"
+    ],
+    "bodyPatterns": [
+      "__VIEWSTATE",
+      "__EVENTVALIDATION"
+    ],
+    "cookiePatterns": [
+      "ASP.NET_SessionId"
+    ]
+  }
+]
