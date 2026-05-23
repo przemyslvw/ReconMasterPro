@@ -25,13 +25,13 @@ jobs:
         cache: 'maven'
 
     - name: Execute Unit Tests
-      run: mvn -B test --file ReconMasterPro/pom.xml
+      run: mvn -B test
 
     - name: Package Fat JAR with Maven
-      run: mvn -B package --file ReconMasterPro/pom.xml
+      run: mvn -B package
 
     - name: Upload Shaded Release JAR Artifact
       uses: actions/upload-artifact@v4
       with:
         name: reconmaster-pro-jar
-        path: ReconMasterPro/target/reconmaster-pro-*-jar-with-dependencies.jar
+        path: target/reconmaster-pro-*-jar-with-dependencies.jar
