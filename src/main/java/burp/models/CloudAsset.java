@@ -1,5 +1,6 @@
 package burp.models;
 
+import burp.IHttpRequestResponse;
 import java.time.Instant;
 
 public class CloudAsset {
@@ -11,6 +12,7 @@ public class CloudAsset {
     public String accessStatus;      // "UNKNOWN" | "PUBLIC" | "PRIVATE" | "NOT_FOUND" | "ERROR"
     public int    accessStatusCode;  // HTTP kod odpowiedzi z weryfikacji (0 = nie sprawdzano)
     public Instant discoveredAt;
+    public transient IHttpRequestResponse originalRequestResponse;
 
     public CloudAsset(CloudProvider provider, String bucketOrAccount,
                       String url, String sourceUrl, String sourceType) {
@@ -22,6 +24,13 @@ public class CloudAsset {
         this.accessStatus     = "UNKNOWN";
         this.accessStatusCode = 0;
         this.discoveredAt     = Instant.now();
+    }
+
+    public CloudAsset(CloudProvider provider, String bucketOrAccount,
+                      String url, String sourceUrl, String sourceType,
+                      IHttpRequestResponse originalRequestResponse) {
+        this(provider, bucketOrAccount, url, sourceUrl, sourceType);
+        this.originalRequestResponse = originalRequestResponse;
     }
 
     /** Zwraca klucz deduplikacji — provider + znormalizowany URL bucketu. */

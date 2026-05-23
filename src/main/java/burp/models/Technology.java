@@ -1,5 +1,6 @@
 package burp.models;
 
+import burp.IHttpRequestResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,12 +14,18 @@ public class Technology {
     public String host;
     public List<CveEntry> cves = new ArrayList<>();
     public Instant discoveredAt;
+    public transient IHttpRequestResponse originalRequestResponse;
 
     public Technology(String name, String category, String host) {
         this.name = name;
         this.category = category;
         this.host = host;
         this.discoveredAt = Instant.now();
+    }
+
+    public Technology(String name, String category, String host, IHttpRequestResponse originalRequestResponse) {
+        this(name, category, host);
+        this.originalRequestResponse = originalRequestResponse;
     }
 
     public String highestSeverity() {
