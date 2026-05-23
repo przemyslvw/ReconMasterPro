@@ -111,9 +111,11 @@ public class ReconMasterPro implements BurpExtension {
                 aiAssistantPanel.refreshSettings();
             });
 
+            AboutPanel aboutPanel = new AboutPanel();
+
             ReconMasterTab tab = new ReconMasterTab(
                 endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel,
-                graphqlPanel, cloudAssetsPanel, reportPanel, aiAssistantPanel, settingsPanel
+                graphqlPanel, cloudAssetsPanel, reportPanel, aiAssistantPanel, settingsPanel, aboutPanel
             );
 
             api.userInterface().registerSuiteTab("ReconMaster Pro", tab);

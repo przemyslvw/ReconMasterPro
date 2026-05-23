@@ -109,6 +109,7 @@ public class AiAssistantPanel extends JPanel {
         leftScroll.setMinimumSize(new Dimension(300, 200));
         leftScroll.setPreferredSize(new Dimension(320, 400));
         leftScroll.setBorder(BorderFactory.createEmptyBorder());
+        leftScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         // ── Right Panel (Card Layout) ────────────────────────────────────────
         rightLayout = new CardLayout();
@@ -542,12 +543,18 @@ public class AiAssistantPanel extends JPanel {
     }
 
     /**
-     * Creates a non-editable JEditorPane that renders HTML properly.
+     * Creates a non-editable JEditorPane that renders HTML properly and wraps text
+     * to the container width (prevents horizontal scrollbar in the left panel).
      * JLabel can fail to render HTML in some Burp Suite Look-and-Feel configurations.
      */
     private static JEditorPane makeHtmlLabel(String innerHtml) {
         String html = "<html><body style='font-family:sans-serif;font-size:11px;'>" + innerHtml + "</body></html>";
-        JEditorPane pane = new JEditorPane("text/html", html);
+        JEditorPane pane = new JEditorPane("text/html", html) {
+            @Override
+            public boolean getScrollableTracksViewportWidth() {
+                return true; // force wrap to parent width — no horizontal overflow
+            }
+        };
         pane.setEditable(false);
         pane.setOpaque(false);
         pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);

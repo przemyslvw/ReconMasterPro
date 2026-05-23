@@ -8,7 +8,7 @@ public class ReconMasterTab extends JTabbedPane {
                           SecretsPanel secretsPanel, TimelinePanel timelinePanel, CorsPanel corsPanel,
                           GraphQLPanel graphqlPanel, CloudAssetsPanel cloudAssetsPanel,
                           ReportPanel reportPanel, AiAssistantPanel aiAssistantPanel,
-                          SettingsPanel settingsPanel) {
+                          SettingsPanel settingsPanel, AboutPanel aboutPanel) {
         addTab("Endpoints", endpointsPanel);
         addTab("Technologies", techPanel);
         addTab("Secrets", secretsPanel);
@@ -19,5 +19,6 @@ public class ReconMasterTab extends JTabbedPane {
         addTab("Report", reportPanel);
         addTab("AI Assistant", aiAssistantPanel);
         addTab("Settings", settingsPanel);
+        addTab("About", aboutPanel);
     }
 }
