@@ -11,6 +11,8 @@ import burp.ui.ReconMasterTab;
 import burp.ui.SecretsPanel;
 import burp.ui.TechStackPanel;
 import burp.ui.TimelinePanel;
+import burp.ui.GraphQLPanel;
+import burp.modules.GraphQLExtractor;
 import burp.utils.CveDatabase;
 import burp.utils.DatabaseManager;
 
@@ -23,6 +25,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
 
     private DatabaseManager db;
     private CorsHunter corsHunter;
+    private GraphQLExtractor graphqlExtractor;
 
     @Override
     public void registerExtenderCallbacks(IBurpExtenderCallbacks callbacks) {
@@ -63,6 +66,15 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             corsPanel.setHunter(corsHunter);
             callbacks.registerHttpListener(corsHunter);
 
+            // --- Etap 7: GraphQL Extractor ---
+            GraphQLPanel graphqlPanel = new GraphQLPanel();
+            graphqlExtractor = new GraphQLExtractor(
+                graphqlPanel::addEndpoint,
+                graphqlPanel::updateSchema
+            );
+            graphqlPanel.setExtractor(graphqlExtractor);
+            callbacks.registerHttpListener(graphqlExtractor);
+
             // Etap 2: EndpointDiscovery z Timeline
             EndpointDiscovery discovery = new EndpointDiscovery(ep -> {
                 endpointsPanel.addEndpoint(ep);
@@ -87,7 +99,7 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
             callbacks.registerHttpListener(secretsScanner);
 
             // --- Tab UI ---
-            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel);
+            ReconMasterTab tab = new ReconMasterTab(endpointsPanel, techPanel, secretsPanel, timelinePanel, corsPanel, graphqlPanel);
             callbacks.addSuiteTab(tab);
         });
 
@@ -99,5 +111,6 @@ public class BurpExtender implements IBurpExtender, IExtensionStateListener {
     public void extensionUnloaded() {
         if (db != null) db.close();
         if (corsHunter != null) corsHunter.shutdown();
+        if (graphqlExtractor != null) graphqlExtractor.shutdown();
     }
 }
