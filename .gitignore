@@ -1,0 +1,78 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Compiled classes
+*.class
+
+# JAR, WAR, EAR
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local environment
+.env
+.env.local
+*.properties.local
+local.properties
+
+# SQLite databases (generated at runtime)
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE temporary files
+.vscode/.history/
+
+# IntelliJ
+out/
+*.iml.bak
+
+# Build artifacts
+build/
+dist/
+
+# Node modules (if needed for future tooling)
+node_modules/
+
+# GitHub
+.github/workflows/*.log

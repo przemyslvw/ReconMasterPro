@@ -1,0 +1,4 @@
+Extension-Class: burp.BurpExtender
+Extension-Name: ReconMaster Pro
+Extension-Version: 1.0.0
+Require-Burp-Version: 2023.1
