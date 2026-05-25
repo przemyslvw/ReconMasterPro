@@ -1,19 +1,20 @@
 package burp.modules;
 
-import burp.ReconMasterPro;
 import burp.models.CloudAsset;
 import burp.utils.CloudAssetDetector;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
+import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.regex.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class CloudAssetsAggregator implements HttpHandler {
+public class CloudAssetsAggregator extends AbstractReconHandler {
 
     // wyciąganie komentarzy HTML
     private static final Pattern HTML_COMMENT = Pattern.compile(
@@ -35,24 +36,14 @@ public class CloudAssetsAggregator implements HttpHandler {
 
     private final Consumer<CloudAsset> onAssetFound;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ReconMaster-CloudAssets");
-        t.setDaemon(true);
-        return t;
-    });
-
     public CloudAssetsAggregator(Consumer<CloudAsset> onAssetFound) {
+        super("CloudAssets");
         this.onAssetFound = onAssetFound;
     }
 
     @Override
-    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        return RequestToBeSentAction.continueWith(requestToBeSent);
-    }
-
-    @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> {
                 try {
                     HttpRequest request = responseReceived.initiatingRequest();
@@ -60,22 +51,18 @@ public class CloudAssetsAggregator implements HttpHandler {
 
                     String sourceUrl = request.url();
 
-                    List<String> rawHeaders = responseReceived.headers().stream().map(h -> h.toString()).toList();
-                    String contentType = getContentType(rawHeaders);
+                    List<HttpHeader> headers = responseReceived.headers();
+                    String contentType = getContentType(headers);
 
                     HttpRequestResponse reqResp = HttpRequestResponse.httpRequestResponse(request, responseReceived);
 
                     // ── 1. Nagłówki ─────────────────────────────────────────
-                    for (String header : rawHeaders) {
-                        int colon = header.indexOf(':');
-                        if (colon < 0) continue;
-                        String name  = header.substring(0, colon).toLowerCase().trim();
-                        String value = header.substring(colon + 1).trim();
-
+                    for (HttpHeader header : headers) {
+                        String name = header.name().toLowerCase().trim();
                         if (CLOUD_HEADERS.contains(name)) {
                             String sourceType = name.startsWith("content-security")
                                 ? "header-csp" : "header-" + name;
-                            process(CloudAssetDetector.scan(value, sourceUrl, sourceType), reqResp);
+                            process(CloudAssetDetector.scan(header.value(), sourceUrl, sourceType), reqResp);
                         }
                     }
 
@@ -95,9 +82,7 @@ public class CloudAssetsAggregator implements HttpHandler {
                     process(CloudAssetDetector.scan(body, sourceUrl, "body"), reqResp);
 
                 } catch (Exception e) {
-                    if (ReconMasterPro.api != null) {
-                        ReconMasterPro.api.logging().logToError("CloudAssetsAggregator: " + e.getMessage());
-                    }
+                    logError("error: " + e.getMessage());
                 }
             });
         }
@@ -120,14 +105,4 @@ public class CloudAssetsAggregator implements HttpHandler {
                contentType.contains("xml") ||
                contentType.isEmpty();
     }
-
-    private String getContentType(List<String> headers) {
-        return headers.stream()
-            .filter(h -> h.toLowerCase().startsWith("content-type:"))
-            .findFirst()
-            .orElse("")
-            .toLowerCase();
-    }
-
-    public void shutdown() { executor.shutdownNow(); }
 }

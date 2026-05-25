@@ -1,25 +1,24 @@
 package burp.modules;
 
-import burp.ReconMasterPro;
 import burp.models.*;
 import burp.utils.CveDatabase;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class TechStackFingerprinter implements HttpHandler {
+public class TechStackFingerprinter extends AbstractReconHandler {
 
     private List<TechSignature> signatures = new ArrayList<>();
     private final CveDatabase cveDb;
@@ -28,13 +27,8 @@ public class TechStackFingerprinter implements HttpHandler {
     // host|techName → już zgłoszone (deduplikacja)
     private final Set<String> reported = ConcurrentHashMap.newKeySet();
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ReconMaster-TechFP");
-        t.setDaemon(true);
-        return t;
-    });
-
     public TechStackFingerprinter(Consumer<Technology> onTechFound, CveDatabase cveDb) {
+        super("TechFP");
         this.onTechFound = onTechFound;
         this.cveDb = cveDb;
     }
@@ -54,13 +48,8 @@ public class TechStackFingerprinter implements HttpHandler {
     }
 
     @Override
-    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        return RequestToBeSentAction.continueWith(requestToBeSent);
-    }
-
-    @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> {
                 try {
                     HttpRequest request = responseReceived.initiatingRequest();
@@ -81,7 +70,7 @@ public class TechStackFingerprinter implements HttpHandler {
                     });
 
                 } catch (Exception e) {
-                    log("Error: " + e.getMessage());
+                    logError("Error: " + e.getMessage());
                 }
             });
         }
@@ -177,15 +166,5 @@ public class TechStackFingerprinter implements HttpHandler {
             }
         }
         return names;
-    }
-
-    public void shutdown() { executor.shutdownNow(); }
-
-    private void log(String msg) {
-        if (ReconMasterPro.api != null) {
-            ReconMasterPro.api.logging().logToOutput("[TechFP] " + msg);
-        } else {
-            System.out.println("[TechFP] " + msg);
-        }
     }
 }

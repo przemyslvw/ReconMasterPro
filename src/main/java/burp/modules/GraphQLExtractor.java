@@ -4,18 +4,19 @@ import burp.ReconMasterPro;
 import burp.models.GraphQLEndpoint;
 import burp.utils.GraphQLDetector;
 import burp.utils.GraphQLSchemaParser;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpRequestToBeSent;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.RequestToBeSentAction;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class GraphQLExtractor implements HttpHandler {
+public class GraphQLExtractor extends AbstractReconHandler {
 
     // klucz: host|url → endpoint (deduplikacja)
     private final Map<String, GraphQLEndpoint> discovered = new ConcurrentHashMap<>();
@@ -23,22 +24,17 @@ public class GraphQLExtractor implements HttpHandler {
     private final Consumer<GraphQLEndpoint> onEndpointFound;
     private final BiConsumer<GraphQLEndpoint, GraphQLSchemaParser.ParsedSchema> onSchemaReady;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ReconMaster-GraphQL");
-        t.setDaemon(true);
-        return t;
-    });
-
     public GraphQLExtractor(
             Consumer<GraphQLEndpoint> onEndpointFound,
             BiConsumer<GraphQLEndpoint, GraphQLSchemaParser.ParsedSchema> onSchemaReady) {
+        super("GraphQL");
         this.onEndpointFound = onEndpointFound;
         this.onSchemaReady = onSchemaReady;
     }
 
     @Override
     public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        if (requestToBeSent.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(requestToBeSent.toolSource())) {
             executor.submit(() -> processRequest(requestToBeSent));
         }
         return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -46,7 +42,7 @@ public class GraphQLExtractor implements HttpHandler {
 
     @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> processResponse(responseReceived));
         }
         return ResponseReceivedAction.continueWith(responseReceived);
@@ -59,8 +55,7 @@ public class GraphQLExtractor implements HttpHandler {
             String url = request.url();
 
             String body = request.bodyToString();
-            List<String> headers = request.headers().stream().map(h -> h.toString()).toList();
-            String contentType = getContentType(headers);
+            String contentType = getContentType(request.headers());
 
             String detectionMethod = null;
             if (GraphQLDetector.isGraphQLPath(path)) {
@@ -185,21 +180,4 @@ public class GraphQLExtractor implements HttpHandler {
         });
     }
 
-    private String getContentType(List<String> headers) {
-        return headers.stream()
-            .filter(h -> h.toLowerCase().startsWith("content-type:"))
-            .findFirst()
-            .orElse("")
-            .toLowerCase();
-    }
-
-    public void shutdown() { executor.shutdownNow(); }
-
-    private void logError(String msg) {
-        if (ReconMasterPro.api != null) {
-            ReconMasterPro.api.logging().logToError("GraphQL error: " + msg);
-        } else {
-            System.err.println("GraphQL error: " + msg);
-        }
-    }
 }

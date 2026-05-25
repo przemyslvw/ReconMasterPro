@@ -1,21 +1,20 @@
 package burp.modules;
 
-import burp.ReconMasterPro;
 import burp.models.Secret;
 import burp.models.SecretPattern;
 import burp.utils.EntropyCalculator;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class SecretsScanner implements HttpHandler {
+public class SecretsScanner extends AbstractReconHandler {
 
     // ── Wzorce regex — kolejność: od najpoważniejszych ────────────────
     private static final List<SecretPattern> PATTERNS = List.of(
@@ -128,24 +127,14 @@ public class SecretsScanner implements HttpHandler {
 
     private final Consumer<Secret> onSecretFound;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ReconMaster-Secrets");
-        t.setDaemon(true);
-        return t;
-    });
-
     public SecretsScanner(Consumer<Secret> onSecretFound) {
+        super("Secrets");
         this.onSecretFound = onSecretFound;
     }
 
     @Override
-    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        return RequestToBeSentAction.continueWith(requestToBeSent);
-    }
-
-    @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> {
                 try {
                     HttpRequest request = responseReceived.initiatingRequest();
@@ -157,8 +146,7 @@ public class SecretsScanner implements HttpHandler {
                     String body = responseReceived.bodyToString();
                     if (body == null || body.isBlank()) return;
 
-                    List<String> headers = responseReceived.headers().stream().map(h -> h.toString()).toList();
-                    String contentType = getContentType(headers);
+                    String contentType = getContentType(responseReceived.headers());
                     if (!isTextualContent(contentType)) return;
 
                     HttpRequestResponse reqResp = HttpRequestResponse.httpRequestResponse(request, responseReceived);
@@ -169,9 +157,7 @@ public class SecretsScanner implements HttpHandler {
                     });
 
                 } catch (Exception e) {
-                    if (ReconMasterPro.api != null) {
-                        ReconMasterPro.api.logging().logToError("SecretsScanner error: " + e.getMessage());
-                    }
+                    logError("error: " + e.getMessage());
                 }
             });
         }
@@ -284,14 +270,4 @@ public class SecretsScanner implements HttpHandler {
                contentType.contains("xml") ||
                contentType.isEmpty(); // nieznany — skanuj dla bezpieczeństwa
     }
-
-    private String getContentType(List<String> headers) {
-        return headers.stream()
-            .filter(h -> h.toLowerCase().startsWith("content-type:"))
-            .findFirst()
-            .orElse("")
-            .toLowerCase();
-    }
-
-    public void shutdown() { executor.shutdownNow(); }
 }

@@ -1,32 +1,27 @@
 package burp.modules;
 
-import burp.ReconMasterPro;
 import burp.models.Endpoint;
 import burp.utils.PatternMatcher;
 import burp.utils.RiskScorer;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.regex.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class EndpointDiscovery implements HttpHandler {
+public class EndpointDiscovery extends AbstractReconHandler {
 
     private final Set<String> seen = ConcurrentHashMap.newKeySet();
     private final PatternMatcher patternMatcher = new PatternMatcher();
     private final RiskScorer riskScorer = new RiskScorer();
-
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "ReconMaster-Discovery");
-        t.setDaemon(true);
-        return t;
-    });
 
     private final Consumer<Endpoint> onEndpointFound;
 
@@ -39,18 +34,19 @@ public class EndpointDiscovery implements HttpHandler {
         "https?://[^\"'\\s<>]+"
     );
 
+    private static final Pattern JSON_URL_RE = Pattern.compile(
+        "\"(?:url|href|link|endpoint|path|uri)\"\\s*:\\s*\"(/[^\"]+)\"",
+        Pattern.CASE_INSENSITIVE
+    );
+
     public EndpointDiscovery(Consumer<Endpoint> onEndpointFound) {
+        super("Discovery");
         this.onEndpointFound = onEndpointFound;
     }
 
     @Override
-    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        return RequestToBeSentAction.continueWith(requestToBeSent);
-    }
-
-    @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> processResponse(responseReceived));
         }
         return ResponseReceivedAction.continueWith(responseReceived);
@@ -65,13 +61,7 @@ public class EndpointDiscovery implements HttpHandler {
             String method = request.method();
             int statusCode = responseReceived.statusCode();
 
-            String contentType = "";
-            for (var h : responseReceived.headers()) {
-                if (h.name().equalsIgnoreCase("content-type")) {
-                    contentType = h.value().toLowerCase();
-                    break;
-                }
-            }
+            String contentType = getContentType(responseReceived.headers());
 
             String body = responseReceived.bodyToString();
             Set<String> extractedPaths = new HashSet<>();
@@ -113,32 +103,14 @@ public class EndpointDiscovery implements HttpHandler {
             }
 
         } catch (Exception e) {
-            if (ReconMasterPro.api != null) {
-                ReconMasterPro.api.logging().logToError("EndpointDiscovery error: " + e.getMessage());
-            }
+            logError("error: " + e.getMessage());
         }
     }
 
     private void extractJsonPaths(String json, Set<String> out) {
-        Pattern jsonUrl = Pattern.compile(
-            "\"(?:url|href|link|endpoint|path|uri)\"\\s*:\\s*\"(/[^\"]+)\"",
-            Pattern.CASE_INSENSITIVE
-        );
-        Matcher m = jsonUrl.matcher(json);
+        Matcher m = JSON_URL_RE.matcher(json);
         while (m.find()) {
             out.add(m.group(1));
         }
-    }
-
-    private String getContentType(List<String> headers) {
-        return headers.stream()
-            .filter(h -> h.toLowerCase().startsWith("content-type:"))
-            .findFirst()
-            .orElse("")
-            .toLowerCase();
-    }
-
-    public void shutdown() {
-        executor.shutdownNow();
     }
 }

@@ -4,16 +4,16 @@ import burp.ReconMasterPro;
 import burp.models.CorsFinding;
 import burp.utils.CorsAnalyzer;
 import burp.utils.CorsPoCGenerator;
-import burp.api.montoya.http.handler.*;
+import burp.api.montoya.http.handler.HttpResponseReceived;
+import burp.api.montoya.http.handler.ResponseReceivedAction;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.core.ToolType;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class CorsHunter implements HttpHandler {
+public class CorsHunter extends AbstractReconHandler {
 
     private static final List<String> PROBE_ORIGINS = List.of(
         "https://evil.attacker.com",
@@ -23,25 +23,16 @@ public class CorsHunter implements HttpHandler {
     );
 
     private final Consumer<CorsFinding> onFinding;
-    private final ExecutorService executor = Executors.newFixedThreadPool(2, r -> {
-        Thread t = new Thread(r, "ReconMaster-CORS");
-        t.setDaemon(true);
-        return t;
-    });
     private final Set<String> probedUrls = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public CorsHunter(Consumer<CorsFinding> onFinding) {
+        super("CORS", 2);
         this.onFinding = onFinding;
     }
 
     @Override
-    public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        return RequestToBeSentAction.continueWith(requestToBeSent);
-    }
-
-    @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (responseReceived.toolSource().isFromTool(ToolType.PROXY, ToolType.REPEATER, ToolType.INTRUDER, ToolType.SCANNER)) {
+        if (isFromAuditableSource(responseReceived.toolSource())) {
             executor.submit(() -> {
                 try {
                     HttpRequest request = responseReceived.initiatingRequest();
@@ -138,17 +129,5 @@ public class CorsHunter implements HttpHandler {
             }
         }
         return map;
-    }
-
-    public void shutdown() {
-        executor.shutdownNow();
-    }
-
-    private void logError(String msg) {
-        if (ReconMasterPro.api != null) {
-            ReconMasterPro.api.logging().logToError("[CORS] " + msg);
-        } else {
-            System.err.println("[CORS] " + msg);
-        }
     }
 }
