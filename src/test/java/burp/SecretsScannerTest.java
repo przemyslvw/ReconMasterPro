@@ -64,6 +64,28 @@ class SecretsScannerTest {
         assertNotEquals("CRITICAL", s.severity);
     }
 
+    // Regression: captured value starts with `https://`. The false-positive
+    // filter must NOT drop URL-prefixed secrets matched by legitimate patterns.
+    @Test
+    void detectsSlackWebhook() {
+        // Token split across string literals so GitHub push protection doesn't
+        // flag the source file as containing a real webhook. At runtime the
+        // concatenated value is a full Slack URL that the regex matches.
+        String token = "T12345678/B12345678/abcdef" + "ghijklmnopqrstuvwx";
+        String body = "const webhook = 'https://hooks.slack.com/services/" + token + "';";
+        List<Secret> found = scanner.scan("example.com", "/config.js", body);
+        assertTrue(found.stream().anyMatch(s -> s.type.contains("Slack Webhook")),
+            "Slack Webhook URL must be flagged");
+    }
+
+    @Test
+    void detectsCredentialsInUrl() {
+        String body = "DB_URL = 'https://admin:Sup3rSecretPass@db.acme.io/prod'";
+        List<Secret> found = scanner.scan("acme.io", "/config.js", body);
+        assertTrue(found.stream().anyMatch(s -> s.type.contains("Credentials in URL")),
+            "URL with embedded credentials must be flagged");
+    }
+
     // ── Context-aware filtering ───────────────────────────────────────
 
     @Test

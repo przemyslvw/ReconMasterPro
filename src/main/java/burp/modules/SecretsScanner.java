@@ -263,9 +263,6 @@ public class SecretsScanner implements HttpHandler {
         // CSS hex kolor: #RRGGBB lub #RGB
         if (value.matches("#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?")) return true;
 
-        // URL — prawdopodobnie endpoint, nie sekret
-        if (value.startsWith("http://") || value.startsWith("https://")) return false;
-
         return false;
     }
 
