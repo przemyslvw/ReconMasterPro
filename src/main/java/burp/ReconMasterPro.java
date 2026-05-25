@@ -14,6 +14,9 @@ public class ReconMasterPro implements BurpExtension {
 
     public static MontoyaApi api;
     private DatabaseManager db;
+    private EndpointDiscovery discovery;
+    private TechStackFingerprinter fingerprinter;
+    private SecretsScanner secretsScanner;
     private CorsHunter corsHunter;
     private GraphQLExtractor graphqlExtractor;
     private CloudAssetsAggregator cloudAggregator;
@@ -60,20 +63,20 @@ public class ReconMasterPro implements BurpExtension {
             graphqlPanel.setExtractor(graphqlExtractor);
             api.http().registerHttpHandler(graphqlExtractor);
 
-            EndpointDiscovery discovery = new EndpointDiscovery(ep -> {
+            discovery = new EndpointDiscovery(ep -> {
                 endpointsPanel.addEndpoint(ep);
                 analyzer.trackEndpoint(ep);
             });
             api.http().registerHttpHandler(discovery);
 
-            TechStackFingerprinter fingerprinter = new TechStackFingerprinter(tech -> {
+            fingerprinter = new TechStackFingerprinter(tech -> {
                 techPanel.addTechnology(tech);
                 analyzer.trackTechnology(tech);
             }, cveDb);
             fingerprinter.loadSignatures();
             api.http().registerHttpHandler(fingerprinter);
 
-            SecretsScanner secretsScanner = new SecretsScanner(secret -> {
+            secretsScanner = new SecretsScanner(secret -> {
                 secretsPanel.addSecret(secret);
                 analyzer.trackSecret(secret);
             });
@@ -123,10 +126,14 @@ public class ReconMasterPro implements BurpExtension {
 
         api.extension().registerUnloadingHandler(() -> {
             try {
-                if (db != null) db.close();
+                // Stop handlers first so they stop writing to db/analyzer.
+                if (discovery != null) discovery.shutdown();
+                if (fingerprinter != null) fingerprinter.shutdown();
+                if (secretsScanner != null) secretsScanner.shutdown();
                 if (corsHunter != null) corsHunter.shutdown();
                 if (graphqlExtractor != null) graphqlExtractor.shutdown();
                 if (cloudAggregator != null) cloudAggregator.shutdown();
+                if (db != null) db.close();
             } catch (Exception ignored) {}
         });
 
