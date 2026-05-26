@@ -16,7 +16,7 @@ ReconMaster Pro is an offline, high-performance target reconnaissance extension 
 | **CORS Hunter** | Passive auditing for wildcard, null origin, and credentials misconfigurations with PoC generator. |
 | **Cloud Assets Aggregator** | Detects public S3, Azure Blob, and Google Cloud Storage buckets in JS/HTML/CSP headers. |
 | **Report Generator** | Offloads report compilation to a background thread to generate HTML, JSON, CSV, or Markdown. |
-| **🤖 AI Security Analyst** | Feeds all collected recon data into an AI model (OpenAI, DeepSeek, Gemini, or local Ollama) to generate a prioritized attack surface report with exploitation recommendations. |
+| **🤖 AI Security Analyst** | Feeds all collected recon data into an AI model (Google Gemini, DeepSeek, or local Ollama) to generate a prioritized attack surface report with exploitation recommendations. |
 
 ## 🤖 AI Security Analyst
 
@@ -24,7 +24,7 @@ The **AI Assistant** tab gives you an autonomous AI-powered analyst that reviews
 
 ### How It Works
 1. Configure which modules to include (Technologies & CVEs, Endpoints, CORS, GraphQL, Cloud Assets, Secrets).
-2. Select an AI provider in **Settings** — supports **OpenAI**, **DeepSeek**, **Gemini**, and **Ollama** (local).
+2. Select an AI provider in **Settings** — supports **Google Gemini**, **DeepSeek**, and **Ollama** (local).
 3. Click **Analyze Attack Surface** — the AI agent receives your recon data and returns a prioritized report with:
    - Critical vulnerabilities and exploitation paths
    - Risk-ranked findings per module
@@ -35,14 +35,13 @@ The **AI Assistant** tab gives you an autonomous AI-powered analyst that reviews
 | Mode | Privacy |
 |------|---------|
 | **Local (Ollama)** | 🛡️ All data stays on your machine — recommended for confidential engagements |
-| **Cloud (OpenAI / DeepSeek / Gemini)** | ⚠️ Findings are transmitted to the cloud API — use masking options |
+| **Cloud (Gemini / DeepSeek)** | ⚠️ Findings are transmitted to the cloud API — use masking options |
 
 Enable **Mask Secrets** and **Mask Domains** in Settings to anonymize sensitive values before transmission.
 
 ### Supported AI Providers
-- **OpenAI** — GPT-4o, GPT-4-turbo, GPT-3.5-turbo
+- **Google Gemini** — gemini-2.0-flash, gemini-1.5-pro (default)
 - **DeepSeek** — deepseek-chat, deepseek-reasoner
-- **Gemini** — gemini-2.0-flash, gemini-1.5-pro
 - **Ollama (Local)** — llama3, mistral, codellama, and any locally hosted model
 
 ## Requirements
@@ -73,12 +72,12 @@ Go to the **ReconMaster Pro** tab and open **Settings**:
 | Active scanning | Off | Run active target endpoint discovery probes |
 | Timeline window | 60 min | Time window for active changes analysis |
 | Export format | JSON | Default report export format |
-| AI Provider | OpenAI | AI backend for the AI Analyst (`OPENAI`, `DEEPSEEK`, `GEMINI`, `LOCAL`) |
-| AI Model | gpt-4o | Model name sent to the AI provider |
+| AI Provider | Gemini | AI backend for the AI Analyst (`GOOGLE`, `DEEPSEEK`, `LOCAL`) |
+| AI Model | gemini-1.5-flash | Model name sent to the AI provider |
 | AI API Key | — | Your API key for the selected cloud provider |
 | Mask Secrets | On | Anonymize detected secrets before sending to AI |
 | Mask Domains | On | Replace real hostnames with placeholders before sending to AI |
-| Local AI URL | http://localhost:11434 | Ollama endpoint for local inference |
+| Local AI URL | http://localhost:11434/v1 | OpenAI-compatible endpoint for local inference (Ollama) |
 
 ## Tech Stack
 * **Burp Suite Montoya API** (`2026.4`)

@@ -11,5 +11,8 @@
   <li><strong>Attack Surface Timeline:</strong> Tracks changes in the target's attack surface over time using an embedded SQLite database.</li>
 </ul>
 
-<h3>Architecture & Performance:</h3>
+<h3>AI Security Analyst (Optional):</h3>
+<p>The <strong>AI Assistant</strong> tab can send collected recon data to an external AI API (Google Gemini, DeepSeek, or a local Ollama instance) to generate a prioritised attack surface report with exploitation recommendations. <strong>External network calls are made only when you explicitly click "Analyze Attack Surface"</strong> — the extension makes no outbound connections otherwise. Use <em>Mask Secrets</em> and <em>Mask Domains</em> in Settings to anonymise findings before transmission. For confidential engagements, choose the Local (Ollama) mode — all data stays on your machine.</p>
+
+<h3>Architecture &amp; Performance:</h3>
 <p>Written utilizing the modern PortSwigger Montoya API and optimized for minimum footprint (typical memory usage &lt; 100MB). All network requests, heavy regex matching, and database operations are processed asynchronously, ensuring the Burp UI remains responsive.</p>
