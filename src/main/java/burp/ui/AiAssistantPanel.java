@@ -4,6 +4,8 @@ import burp.models.*;
 import burp.modules.AiAnalyzer;
 import burp.modules.AiClient;
 import burp.ui.utils.CodeBlockPanel;
+import burp.ui.utils.MarkdownRenderer;
+import burp.ui.utils.ThemeColors;
 import burp.utils.SettingsManager;
 import burp.utils.AiProvider;
 
@@ -11,7 +13,6 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Supplier;
@@ -164,6 +165,10 @@ public class AiAssistantPanel extends JPanel {
         splitPane.setBorder(BorderFactory.createEmptyBorder());
 
         add(splitPane, BorderLayout.CENTER);
+    }
+
+    public void shutdown() {
+        aiClient.shutdown();
     }
 
     public void refreshSettings() {
@@ -374,7 +379,7 @@ public class AiAssistantPanel extends JPanel {
     private void addTextBlock(String md) {
         if (md == null || md.trim().isEmpty()) return;
 
-        String html = convertMarkdownToHtml(md);
+        String html = MarkdownRenderer.toHtml(md);
 
         JTextPane textPane = new JTextPane();
         textPane.setContentType("text/html");
@@ -382,23 +387,13 @@ public class AiAssistantPanel extends JPanel {
         textPane.setBackground(resultsContainer.getBackground());
         textPane.setMargin(new Insets(6, 6, 6, 6));
 
-        // Dynamically style based on Burp theme color
-        Color bg = UIManager.getColor("TextPane.background");
-        if (bg == null) bg = UIManager.getColor("Panel.background");
-        if (bg == null) bg = Color.WHITE;
-
-        Color fg = UIManager.getColor("TextPane.foreground");
-        if (fg == null) fg = UIManager.getColor("Label.foreground");
-        if (fg == null) fg = Color.BLACK;
-
-        String bgHex = String.format("#%02x%02x%02x", bg.getRed(), bg.getGreen(), bg.getBlue());
-        String fgHex = String.format("#%02x%02x%02x", fg.getRed(), fg.getGreen(), fg.getBlue());
-
-        boolean isDark = (bg.getRed() + bg.getGreen() + bg.getBlue()) / 3 < 128;
-        String borderHex = isDark ? "#444444" : "#dddddd";
+        boolean isDark = ThemeColors.isDark();
+        String bgHex = ThemeColors.toHex(ThemeColors.background());
+        String fgHex = ThemeColors.toHex(ThemeColors.foreground());
+        String borderHex   = isDark ? "#444444" : "#dddddd";
         String headerBgHex = isDark ? "#2d2d2d" : "#f2f2f2";
-        String codeBgHex = isDark ? "#282828" : "#f5f5f5";
-        String evenRowBgHex = isDark ? "#232323" : "#fafafa";
+        String codeBgHex   = isDark ? "#282828" : "#f5f5f5";
+        String evenRowHex  = isDark ? "#232323" : "#fafafa";
 
         String styledHtml = "<html><head><style>" +
                 "body { font-family: sans-serif; font-size: 11px; color: " + fgHex + "; margin: 0; }" +
@@ -408,7 +403,7 @@ public class AiAssistantPanel extends JPanel {
                 "table { border-collapse: collapse; width: 100%; margin-bottom: 8px; margin-top: 4px; }" +
                 "th { background-color: " + headerBgHex + "; border: 1px solid " + borderHex + "; padding: 4px; text-align: left; font-weight: bold; color: " + fgHex + "; }" +
                 "td { border: 1px solid " + borderHex + "; padding: 4px; color: " + fgHex + "; }" +
-                "tr:nth-child(even) { background-color: " + evenRowBgHex + "; }" +
+                "tr:nth-child(even) { background-color: " + evenRowHex + "; }" +
                 "ul { margin-top: 2px; margin-bottom: 2px; padding-left: 16px; }" +
                 "li { margin-bottom: 1px; }" +
                 "p { margin-top: 2px; margin-bottom: 2px; }" +
@@ -436,125 +431,6 @@ public class AiAssistantPanel extends JPanel {
 
         resultsContainer.add(wrapper);
         resultsContainer.add(Box.createVerticalStrut(4));
-    }
-
-    private String convertMarkdownToHtml(String md) {
-        if (md == null) return "";
-
-        String[] lines = md.split("\n");
-        StringBuilder sb = new StringBuilder();
-        boolean inList = false;
-        boolean inTable = false;
-        boolean hasTableHeader = false;
-
-        for (String line : lines) {
-            String trimmed = line.trim();
-
-            // List items
-            if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-                if (!inList) {
-                    sb.append("<ul>");
-                    inList = true;
-                }
-                String content = trimmed.substring(2);
-                content = replaceMarkdownFormatting(content);
-                sb.append("<li>").append(content).append("</li>");
-                continue;
-            } else {
-                if (inList) {
-                    sb.append("</ul>");
-                    inList = false;
-                }
-            }
-
-            // Tables
-            if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-                if (!inTable) {
-                    sb.append("<table>");
-                    inTable = true;
-                    hasTableHeader = false;
-                }
-
-                if (trimmed.matches("^\\|[\\s\\-:\\|]+$")) {
-                    continue; // Skip separator line
-                }
-
-                String[] cells = trimmed.split("\\|");
-                List<String> validCells = new ArrayList<>();
-                int startIdx = trimmed.startsWith("|") ? 1 : 0;
-                int endIdx = cells.length;
-                if (trimmed.endsWith("|") && cells.length > startIdx) {
-                    endIdx = cells.length - 1;
-                }
-                for (int i = startIdx; i < endIdx; i++) {
-                    validCells.add(cells[i].trim());
-                }
-
-                sb.append("<tr>");
-                for (String cell : validCells) {
-                    String formattedCell = replaceMarkdownFormatting(cell);
-                    if (!hasTableHeader) {
-                        sb.append("<th>").append(formattedCell).append("</th>");
-                    } else {
-                        sb.append("<td>").append(formattedCell).append("</td>");
-                    }
-                }
-                sb.append("</tr>");
-
-                if (!hasTableHeader) {
-                    hasTableHeader = true;
-                }
-                continue;
-            } else {
-                if (inTable) {
-                    sb.append("</table>");
-                    inTable = false;
-                }
-            }
-
-            // Headers
-            if (trimmed.startsWith("### ")) {
-                String content = trimmed.substring(4);
-                sb.append("<h3>").append(replaceMarkdownFormatting(content)).append("</h3>");
-                continue;
-            } else if (trimmed.startsWith("## ")) {
-                String content = trimmed.substring(3);
-                sb.append("<h2>").append(replaceMarkdownFormatting(content)).append("</h2>");
-                continue;
-            } else if (trimmed.startsWith("# ")) {
-                String content = trimmed.substring(2);
-                sb.append("<h1>").append(replaceMarkdownFormatting(content)).append("</h1>");
-                continue;
-            }
-
-            // Regular paragraph
-            if (!trimmed.isEmpty()) {
-                sb.append("<p>").append(replaceMarkdownFormatting(trimmed)).append("</p>");
-            }
-        }
-
-        if (inList) sb.append("</ul>");
-        if (inTable) sb.append("</table>");
-
-        return sb.toString();
-    }
-
-    private String replaceMarkdownFormatting(String text) {
-        if (text == null) return "";
-
-        // Escape HTML
-        text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-
-        // Code code
-        text = text.replaceAll("`([^`]+)`", "<code>$1</code>");
-
-        // Bold
-        text = text.replaceAll("\\*\\*([^\\*]+)\\*\\*", "<b>$1</b>");
-
-        // Italic
-        text = text.replaceAll("\\*([^\\*]+)\\*", "<i>$1</i>");
-
-        return text;
     }
 
     /**

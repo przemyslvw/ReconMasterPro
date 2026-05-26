@@ -15,11 +15,17 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class AiClient {
 
+    private static final int CONNECT_TIMEOUT_SECONDS = 30;
+    private static final int REQUEST_TIMEOUT_SECONDS = 90;
+
     private final SettingsManager settings;
     private final HttpClient httpClient;
+    private final ExecutorService aiExecutor;
 
     // Package-private to allow mock server override in tests
     String geminiBaseUrl = "https://generativelanguage.googleapis.com";
@@ -33,8 +39,17 @@ public class AiClient {
     public AiClient(SettingsManager settings) {
         this.settings = settings;
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(30))
+                .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
                 .build();
+        this.aiExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ReconMaster-AI");
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
+    public void shutdown() {
+        aiExecutor.shutdownNow();
     }
 
     /**
@@ -58,7 +73,7 @@ public class AiClient {
      * Sends the prompts to the selected AI provider asynchronously.
      */
     public void sendPromptAsync(String systemPrompt, String userPrompt, AiCallback callback) {
-        new Thread(() -> {
+        aiExecutor.submit(() -> {
             try {
                 String response = sendPrompt(systemPrompt, userPrompt);
                 callback.onSuccess(response);
@@ -66,7 +81,7 @@ public class AiClient {
                 logError("Failed to communicate with AI API", t);
                 callback.onFailure(t);
             }
-        }).start();
+        });
     }
 
     private String sendGoogleGemini(String systemPrompt, String userPrompt) throws Exception {
@@ -209,7 +224,7 @@ public class AiClient {
     private String sendPostRequest(String url, String requestBody, Map<String, String> headers) throws Exception {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(90))
+                .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
                 .header("Content-Type", "application/json");
 
         if (headers != null) {

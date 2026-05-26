@@ -20,6 +20,7 @@ public class ReconMasterPro implements BurpExtension {
     private CorsHunter corsHunter;
     private GraphQLExtractor graphqlExtractor;
     private CloudAssetsAggregator cloudAggregator;
+    private AiAssistantPanel aiAssistantPanel;
 
     @Override
     public void initialize(MontoyaApi api) {
@@ -98,7 +99,7 @@ public class ReconMasterPro implements BurpExtension {
             );
             ReportPanel reportPanel = new ReportPanel(reportGenerator);
 
-            AiAssistantPanel aiAssistantPanel = new AiAssistantPanel(
+            aiAssistantPanel = new AiAssistantPanel(
                 settings,
                 endpointsPanel::getEndpoints,
                 techPanel::getTechnologies,
@@ -133,6 +134,7 @@ public class ReconMasterPro implements BurpExtension {
                 if (corsHunter != null) corsHunter.shutdown();
                 if (graphqlExtractor != null) graphqlExtractor.shutdown();
                 if (cloudAggregator != null) cloudAggregator.shutdown();
+                if (aiAssistantPanel != null) aiAssistantPanel.shutdown();
                 if (db != null) db.close();
             } catch (Exception ignored) {}
         });

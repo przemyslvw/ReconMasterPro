@@ -10,7 +10,7 @@ import java.util.List;
 
 public class DatabaseManager {
 
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
 
     private final String dbPath;
     private Connection conn;
@@ -63,7 +63,10 @@ public class DatabaseManager {
             createSchemaV1();
             setSchemaVersion(1);
         }
-        // future: if (version < 2) { migrateToV2(); setSchemaVersion(2); }
+        if (version < 2) {
+            migrateToV2();
+            setSchemaVersion(2);
+        }
     }
 
     private void createSchemaV1() throws SQLException {
@@ -102,6 +105,13 @@ public class DatabaseManager {
 
         try (Statement st = conn.createStatement()) {
             for (String sql : ddl) st.execute(sql);
+        }
+    }
+
+    private void migrateToV2() throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE INDEX IF NOT EXISTS idx_secrets_host ON secrets(host)");
+            st.execute("CREATE INDEX IF NOT EXISTS idx_technologies_host ON technologies(host)");
         }
     }
 
