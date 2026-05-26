@@ -25,8 +25,8 @@ class DatabaseManagerTest {
     // ── Schema ────────────────────────────────────────────────────────
 
     @Test
-    void schemaVersionIsOneAfterInit() {
-        assertEquals(1, db.getSchemaVersion());
+    void schemaVersionIsTwoAfterInit() {
+        assertEquals(2, db.getSchemaVersion());
     }
 
     // ── Endpoints ─────────────────────────────────────────────────────
