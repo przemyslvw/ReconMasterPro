@@ -4,12 +4,14 @@ import burp.models.*;
 import burp.utils.SettingsManager;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 public class AiAnalyzer {
 
     private final SettingsManager settings;
+    private final Map<String, Pattern> maskPatternCache = new ConcurrentHashMap<>();
     private final Supplier<List<Endpoint>> endpointSupplier;
     private final Supplier<List<Technology>> techSupplier;
     private final Supplier<List<Secret>> secretSupplier;
@@ -308,9 +310,10 @@ public class AiAnalyzer {
         String masked = text;
         for (String key : sortedKeys) {
             String value = hostMap.get(key);
-            masked = Pattern.compile(Pattern.quote(key), Pattern.CASE_INSENSITIVE)
-                            .matcher(masked)
-                            .replaceAll(value);
+            masked = maskPatternCache
+                        .computeIfAbsent(key, k -> Pattern.compile(Pattern.quote(k), Pattern.CASE_INSENSITIVE))
+                        .matcher(masked)
+                        .replaceAll(value);
         }
         return masked;
     }

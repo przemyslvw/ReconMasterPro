@@ -41,6 +41,7 @@ public class TechStackFingerprinter extends AbstractReconHandler {
             }
             Type listType = new TypeToken<List<TechSignature>>() {}.getType();
             signatures = new Gson().fromJson(new InputStreamReader(is), listType);
+            signatures.forEach(TechSignature::compilePatterns);
             log("Tech signatures loaded: " + signatures.size());
         } catch (Exception e) {
             log("Failed to load signatures: " + e.getMessage());
@@ -85,10 +86,9 @@ public class TechStackFingerprinter extends AbstractReconHandler {
             String version = null;
 
             // 1. nagłówki HTTP
-            for (String pattern : sig.headerPatterns) {
+            for (Pattern p : sig.compiledHeaderPatterns) {
                 for (String header : headers) {
-                    Matcher m = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE)
-                                      .matcher(header);
+                    Matcher m = p.matcher(header);
                     if (m.find()) {
                         if (version == null && m.groupCount() >= 1) {
                             try { version = m.group(1); } catch (Exception ignored) {}
@@ -102,8 +102,8 @@ public class TechStackFingerprinter extends AbstractReconHandler {
             }
 
             // 2. body (HTML + JS + JSON)
-            for (String pattern : sig.bodyPatterns) {
-                Matcher m = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(body);
+            for (Pattern p : sig.compiledBodyPatterns) {
+                Matcher m = p.matcher(body);
                 if (m.find()) {
                     if (version == null && m.groupCount() >= 1) {
                         try { version = m.group(1); } catch (Exception ignored) {}
@@ -116,8 +116,7 @@ public class TechStackFingerprinter extends AbstractReconHandler {
             }
 
             // 3. ciasteczka
-            for (String pattern : sig.cookiePatterns) {
-                Pattern p = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE);
+            for (Pattern p : sig.compiledCookiePatterns) {
                 for (String cookie : cookieNames) {
                     if (p.matcher(cookie).find()) {
                         final String v = version;
